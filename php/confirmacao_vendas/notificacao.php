@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/../../php/vendor/autoload.php';
 
 use MercadoPago\SDK;
 use MercadoPago\Payment;
@@ -19,6 +19,8 @@ if (!$data || !isset($data["type"]) || $data["type"] !== "payment") {
 
 $paymentId = $data["data"]["id"];
 $payment = Payment::find_by_id($paymentId);
+var_dump($payment);
+
 
 // Verifica se o pagamento está aprovado
 if ($payment && $payment->status === "approved") {

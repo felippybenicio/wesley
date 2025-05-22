@@ -1,32 +1,63 @@
 <?php
-$mes = $_GET['mes'];
-$ano = $_GET['ano'];
+header('Content-Type: application/json');
 
+// Conexão com o banco
 $conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
 if ($conn->connect_error) {
-    die("Falha na conexão: " . $conn->connect_error);
+    die(json_encode(['erro' => "Falha na conexão: " . $conn->connect_error]));
 }
 
-$sql = "SELECT DAY(dia) AS dia, COUNT(*) AS total 
-        FROM dados_pessoais 
-        WHERE MONTH(dia) = ? AND YEAR(dia) = ? 
-        GROUP BY dia 
-        HAVING total >= 8";
+// Se a data completa for enviada, retorna as horas ocupadas desse dia
+if (isset($_GET['data'])) {
+    $data = $_GET['data'];
 
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    die("Erro no prepare: " . $conn->error);
+    $stmt = $conn->prepare("SELECT hora FROM dados_pessoais WHERE dia = ?");
+    if (!$stmt) {
+        die(json_encode(['erro' => "Erro no prepare: " . $conn->error]));
+    }
+
+    $stmt->bind_param("s", $data);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $horas = [];
+    while ($row = $result->fetch_assoc()) {
+        $horas[] = $row['hora'];
+    }
+
+    echo json_encode($horas);
+    exit;
 }
 
-$stmt->bind_param("ii", $mes, $ano);
-$stmt->execute();
+// Se mês e ano forem enviados, retorna os dias com 8 agendamentos
+if (isset($_GET['mes']) && isset($_GET['ano'])) {
+    $mes = $_GET['mes'];
+    $ano = $_GET['ano'];
 
-$result = $stmt->get_result();
+    $sql = "SELECT DAY(dia) AS dia, COUNT(*) AS total 
+            FROM dados_pessoais 
+            WHERE MONTH(dia) = ? AND YEAR(dia) = ? 
+            GROUP BY dia 
+            HAVING total >= 8";
 
-$dias = [];
-while ($row = $result->fetch_assoc()) {
-    $dias[] = $row['dia'];  // só o número do dia
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        die(json_encode(['erro' => "Erro no prepare: " . $conn->error]));
+    }
+
+    $stmt->bind_param("ii", $mes, $ano);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $dias = [];
+    while ($row = $result->fetch_assoc()) {
+        $dias[] = $row['dia'];
+    }
+
+    echo json_encode(['dias_cheios' => $dias]);
+    exit;
 }
 
-echo json_encode(['dias_cheios' => $dias]);
+// Se nenhum parâmetro válido for enviado
+echo json_encode(['erro' => 'Parâmetros inválidos']);
 ?>

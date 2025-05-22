@@ -1,9 +1,0 @@
-.ocupado {
-    background-color: #f88;
-    color: white;
-    cursor: not-allowed;
-}
-.disponivel {
-    background-color: #8f8;
-    cursor: pointer;
-}

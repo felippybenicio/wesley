@@ -99,7 +99,8 @@ $preference = new Preference();
 $preference->items = [$item];
 $preference->external_reference = $pagamento_id; 
 
-$base_url = "https://e07c-2804-7f0-b7c1-8d01-246f-bc69-9684-4b1a.ngrok-free.app/wesley";
+$base_url = "https://34e9-2804-7f0-b7c1-8d01-ad6a-bf67-45e3-30e5.ngrok-free.app/wesley";
+
 
 $preference->back_urls = [
     "success" => $base_url . "/sucesso.html",
@@ -107,7 +108,7 @@ $preference->back_urls = [
     "pending" => $base_url . "/pendente.html"
 ];
 $preference->auto_return = "approved";
-$preference->notification_url = $base_url . "/notificacao.php";
+$preference->notification_url = $base_url . "/php/confirmacao_vendas/notificacao.php";
 
 try {
     $preference->save();
