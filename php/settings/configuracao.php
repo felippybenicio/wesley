@@ -11,32 +11,39 @@
 
 
 $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
+$quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 
-$servicos = [];
+$servicosPost = [];
 
-for ($i = 2; $i <= $quantidadeServicos; $i++) {
+for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $tipo = $_POST["tipo$i"] ?? '';
     $valor = $_POST["valor$i"] ?? '';
-    $qtFunc = $_POST["qtFuncionario$i"] ?? 1;
+    $qtFuncionario = $_POST["qtFuncionario$i"] ?? 1;
+    $duracaoServico = $_POST["duracaoServico$i"] ?? '';
+    $intervaloServico = $_POST["intervaloServico$i"] ?? '';
+    $tipoDia = $_POST['tipoDia'] ?? [];
+    $inicio = $_POST['inicio'] ?? [];
+    $fim = $_POST['fim'] ?? [];
 
     $funcionarios = [];
-    for ($j = 1; $j <= $qtFunc; $j++) {
-        $funcionarios[] = $_POST["funcionario{$i}_{$j}"] ?? '';
+    for ($j = 1; $j <= 5; $j++) {
+        $key = "funcionario{$i}_{$j}";
+        if (isset($_POST[$key])) {
+            $funcionarios[] = $_POST[$key];
+        }
     }
 
-    $servicos[$i] = [
+    $servicosPost[$i - 1] = [ 
         'tipo' => $tipo,
         'valor' => $valor,
-        'qtFuncionario' => $qtFunc,
-        'funcionarios' => $funcionarios
+        'qtFuncionario' => (int)$qtFuncionario,
+        'funcionarios' => $funcionarios,
+        'duracao' => $duracaoServico,   
+        'intervalo' => $intervaloServico   
     ];
+
+
 }
-
-
-
-
-
-
     $mesesIndisponiveis = $_POST['mesIndisponivel'] ?? [];
     $diasSemanaIndisponiveis = $_POST['semanaIndisponivel'] ?? [];
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
@@ -45,6 +52,15 @@ for ($i = 2; $i <= $quantidadeServicos; $i++) {
     $valores = [];
     $qtFuncionarios = [];
     $funcionarios = [];
+    $duracaoServico = [];
+    $intervaloServico = [];
+
+    $semana = [];
+    $datasEspecificas = [];
+
+    
+
+
 
     for ($i = 1; $i <= $quantidadeServicos; $i++) {
         $tipos[$i] = $_POST["tipo$i"] ?? '';
@@ -56,65 +72,64 @@ for ($i = 2; $i <= $quantidadeServicos; $i++) {
         }
     }
 
-    $horario = [
-        'inicio' => $_POST['Hinicio'] ?? '',
-        'fim' => $_POST['Htermino'] ?? '',
-        'duracao' => $_POST['duracaoServico'] ?? '',
-        'intervalo' => $_POST['intervaloServico'] ?? ''
-    ];
+    
+    
 
     $conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
-    if (isset($_POST['remover_data'])) {
-            $data = $_POST['remover_data'];
 
-            $sql = "DELETE FROM dia_indisponivel WHERE data = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $data);
-            $stmt->execute();
-            $stmt->close();
-            
-            // Recarrega a página
-            header("Location: " . $_SERVER['PHP_SELF']);
-            exit;
+
+
+    if (isset($_POST['remover_data'])) {
+        $stmt = $conn->prepare("INSERT INTO dia_indisponivel (data) VALUES (?)");
+
+        $data = $_POST['remover_data'];
+        $sql = "DELETE FROM dia_indisponivel WHERE data = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $data);
+        $stmt->execute();
+        $stmt->close();
+        // Recarrega a página
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+    $sqlHoras = "SELECT * FROM horario_config";
+    $result = $conn->query($sqlHoras);
+
+    if ($result && $result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $chave = $row['semana_ou_data'];
+            $inicio = $row['inicio_servico'];
+            $fim = $row['termino_servico'];
+
+            // Se for número (0 a 6), é dia da semana
+            if (is_numeric($chave)) {
+                $semana[(int)$chave] = [
+                    'inicio' => $inicio,
+                    'fim' => $fim
+                ];
+            } else {
+                // senão, é data específica
+                $datasEspecificas[] = [
+                    'data' => $chave,
+                    'inicio' => $inicio,
+                    'fim' => $fim
+                ];
+            }
+        }
     }
 ?>
 
+        <h1>Configuração</h1>
+        <form action="<?= $_SERVER['PHP_SELF'] ?>" method="post">
+            <h2>Serviços</h2>
+
+            <label for="quantidadeServicos">Quantidade de serviços</label>
+            <input type="number" name="quantidadeServicos" id="quantidadeServicos" value="<?= htmlspecialchars($quantidadeServicos) ?>" min="1" max="5">
+
+            <div id="camposServicos"></div>
 
 
-    <h1>configuração</h1>
-    <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
-        <h2>serviços</h2>
-        <label for="quantidadeServicos">quantidade de serviços</label>
-        <input type="number" name="quantidadeServicos" id="quantidadeServicos" value="<?= htmlspecialchars($quantidadeServicos) ?>" min="1" max="5">
-        
-
-        <h3>Serviço 1</h3>
-         <div>
-            <label for="tipo1">Serviço:</label>
-            <input type="text" name="tipo1" id="tipo1" value="<?= htmlspecialchars($tipos[1]) ?>">
-        </div><br>
-
-        <div>
-            <label for="valor1">Valor:</label>
-            <input type="number" step="0.01" name="valor1" id="valor1" value="<?= htmlspecialchars($valores[1]) ?>">
-        </div>
-
-        <div>
-            <label for="qtFuncionario1">Quantidade de funcionarios para este serviço:</label>
-            <input type="number" name="qtFuncionario1" id="qtFuncionario1" value="<?= htmlspecialchars($qtFuncionarios[1]) ?>" min="1" max="5">
-
-            <div>
-                <label for="funcionario1_1">nome do funcionarios 1:</label>
-                <input type="text" name="funcionario1_1" id="funcionario1_1" value="<?= htmlspecialchars($funcionarios[1][1]) ?>">
-            </div>
-
-            <div id="funcionarios"></div>
-
-
-        </div>
-        <div id="camposServicos"></div>
-        
-       
         
         <h2>mes indisponivel</h2>
         <label>
@@ -242,17 +257,17 @@ $result = $conn->query("SELECT data FROM dia_indisponivel ORDER BY data ASC");
 while ($row = $result->fetch_assoc()) {
     $data = $row['data'];
     echo "<li>
-            <form method='post' style='display:inline;'>
+            
                 <input type='date' value='$data' readonly>
                 <button type='submit' name='remover_data' value='$data'>Remover</button>
-            </form>
+            
           </li>";
 }
 ?>
 
 
 <script>
-    const servicosPost = <?= json_encode($servicos); ?>;
+    const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
 </script>
 
 <script>
@@ -265,10 +280,53 @@ while ($row = $result->fetch_assoc()) {
 
 
         <h2>horas</h2>
-        <input type="time" name="Hinicio" value="<?= $horario['inicio'] ?>">
-        <input type="time" name="Htermino" value="<?= $horario['fim'] ?>">
-        <input type="time" name="duracaoServico" value="<?= $horario['duracao'] ?>">
-        <input type="time" name="intervaloServico" value="<?= $horario['intervalo'] ?>">
+        <table>
+            <thead>
+            <tr>
+                <th>Dias da Semana</th>
+                <th>Início Expediente</th>
+                <th>Término Expediente</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php
+                $dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+                foreach ($dias as $i => $dia) {
+                    $inicio = $semana[$i]['inicio'] ?? '';
+                    $fim = $semana[$i]['fim'] ?? '';
+                    echo "<tr>
+                            <th>$dia</th>
+                            <td><input type='time' name='inicio[]' class='inicio' data-index='$i' value='$inicio'></td>
+                            <td><input type='time' name='fim[]' class='fim' data-index='$i' value='$fim'>
+                            <input type='hidden' name='tipoDia[]' value='$i'>
+                            </td>
+                        </tr>";
+                }
+            ?>
+            </tbody>
+                <tbody id="datas-especificas">
+                    <?php
+                        foreach ($datasEspecificas as $index => $data) {
+                            echo "<tr>
+                                <td><input type='date' name='tipoDia[]' value='" . htmlspecialchars($data['data']) . "'></td>
+                                <td><input type='time' name='inicio[]' value='" . htmlspecialchars($data['inicio']) . "' class='inicio' data-index='$index'></td>
+                                <td><input type='time' name='fim[]' value='" . htmlspecialchars($data['fim']) . "' class='fim' data-index='$index'></td>
+                                <td style='background:red;cursor:pointer' onclick='this.parentNode.remove()'>X</td>
+                            </tr>";
+                        }
+                    ?>
+
+            </tbody>
+            
+            <tfoot>
+                <tr>
+                    <td colspan="4">
+                        <button type="button" id="addData">Adicionar Data Específica</button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+
 
 
         
@@ -290,6 +348,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
         $tipo = $_POST["tipo$i"] ?? null;
         $valor = isset($_POST["valor$i"]) ? floatval($_POST["valor$i"]) : null;
         $qtFuncionario = isset($_POST["qtFuncionario$i"]) ? intval($_POST["qtFuncionario$i"]) : 0;
+        $duracaoServico = $_POST["duracaoServico$i"] ?? null;
+        $intervaloServico = $_POST["intervaloServico$i"] ?? null;
+
 
         // Ignora se algum campo essencial estiver faltando
         if (empty($tipo) || $valor === null) {
@@ -297,8 +358,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
         }
 
         // Insere serviço
-        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios) VALUES (?, ?, ?)");
-        $stmt->bind_param("sdi", $tipo, $valor, $qtFuncionario);
+        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sdiss", $tipo, $valor, $qtFuncionario, $duracaoServico, $intervaloServico);
         $stmt->execute();
         $servico_id = $stmt->insert_id;
         $stmt->close();
@@ -315,31 +376,75 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
         }
     }
 
-
         // Horas
-        $horaInicio = $_POST['Hinicio'] ?? null;
-        $horaTermino = $_POST['Htermino'] ?? null;
-        $duracao = $_POST['duracaoServico'] ?? null;
-        $intervalo = $_POST['intervaloServico'] ?? null;
+        
+        $tipos = $_POST['tipoDia'] ?? [];
+            $inicios = $_POST['inicio'] ?? [];
+            $fins = $_POST['fim'] ?? [];
 
-        if ($horaInicio && $horaTermino && $duracao && $intervalo) {
-            $stmt = $conn->prepare("INSERT INTO horario_config (inicio_servico, termino_servico, duracao, intervalo) VALUES (?, ?, ?, ?)");
+            if (count($tipos) === count($inicios) && count($inicios) === count($fins)) {
+
+                // Apaga os registros antigos
+                $conn->query("DELETE FROM horario_config");
+
+                $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
+
+                foreach ($tipos as $i => $tipo) {
+                    $horaInicio = $inicios[$i];
+                    $horaFim = $fins[$i];
+
+                    if ($horaInicio && $horaFim) {
+                        $stmt->bind_param("sss", $tipo, $horaInicio, $horaFim);
+                        $stmt->execute();
+                    }
+                }
+
+                $stmt->close();
+            } 
             
-            if ($stmt === false) {
-                die("Erro ao preparar statement: " . $conn->error);
+
+        
+
+
+
+        //Limpar dados anteriores
+
+        $conn->query("DELETE FROM funcionario");
+        $conn->query("DELETE FROM servico");
+
+        $quantidadeServicos = intval($_POST['quantidadeServicos']);
+
+        for ($i = 1; $i <= $quantidadeServicos; $i++) {
+            $tipo = $_POST["tipo$i"] ?? '';
+            $valor = $_POST["valor$i"] ?? 0;
+            $duracao = $_POST["duracaoServico$i"] ?? '';
+            $intervalo = $_POST["intervaloServico$i"] ?? '';
+            $qtFuncionario = intval($_POST["qtFuncionario$i"] ?? 1);
+
+            // Inserir serviço
+            $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("sdssi", $tipo, $valor, $qtFuncionario, $duracao, $intervalo);
+            $stmt->execute();
+            $servicoId = $stmt->insert_id;
+
+            // Inserir funcionários do serviço
+            for ($j = 1; $j <= $qtFuncionario; $j++) {
+                $nomeFuncionario = $_POST["funcionario{$i}_{$j}"] ?? '';
+                if (!empty($nomeFuncionario)) {
+                    $stmtF = $conn->prepare("INSERT INTO funcionario(servico_id, nome) VALUES (?, ?)");
+                    $stmtF->bind_param("is", $servicoId, $nomeFuncionario);
+                    $stmtF->execute();
+                }
             }
-
-            $stmt->bind_param("ssss", $horaInicio, $horaTermino, $duracao, $intervalo);
-
-            if (!$stmt->execute()) {
-                die("Erro ao executar statement: " . $stmt->error);
-            }
-
-            $stmt->close();
         }
+if (!$stmt) {
+    die("Erro no prepare: " . $conn->error);
+}
+if (!$stmt->execute()) {
+    die("Erro ao executar: " . $stmt->error);
+}
 
 
-        // Limpar dados anteriores
         $conn->query("DELETE FROM mes_indisponivel");
         foreach ($mesesIndisponiveis as $mes) {
             $stmt = $conn->prepare("INSERT INTO mes_indisponivel (mes) VALUES (?)");
@@ -424,13 +529,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
         }
 
         // Consulta 2
-        $result = $conn->query("SELECT * FROM horario_config LIMIT 1");
+        // Busca os horários salvos do banco
+        $horarios = [];
+        $result = $conn->query("SELECT * FROM horario_config");
 
-        if (!$result) {
-            die("Erro na consulta: " . $conn->error); // Mostra o erro do MySQL
+        while ($row = $result->fetch_assoc()) {
+            $horarios[] = $row;
         }
 
-        $horario = $result->fetch_assoc();
 
 
         // Consulta 3
@@ -455,8 +561,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
 
         
 }
+// FALTA
+// preencher assim q entro
+// arrumar para subistituir informaçoes dos serviçoes
 
-    ?>
+?>
 
 </body>
 </html>
