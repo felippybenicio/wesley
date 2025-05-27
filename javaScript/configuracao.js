@@ -8,6 +8,9 @@ let mesAtual = agora.getMonth() + 1;
 let anoAtual = agora.getFullYear();
 
 
+
+
+
 //SERVIÇOS E FUNCIONARIOS
     document.addEventListener("DOMContentLoaded", function () {
     const qtdInput = document.getElementById("quantidadeServicos");
@@ -98,6 +101,18 @@ let anoAtual = agora.getFullYear();
 
     // Inicializa com dados do POST (se houver)
     criarCampos(servicosPost);
+    
+    document.addEventListener("DOMContentLoaded", () => {
+    if (Array.isArray(dadosServicos)) {
+        document.getElementById('quantidadeServicos').value = dadosServicos.length;
+
+        dadosServicos.forEach((servico, index) => {
+            const i = index + 1;
+            adicionarCamposServico(i, servico.tipo, servico.valor, servico.qtFunc, servico.duracao, servico.intervalo);
+        });
+    }
+});
+
 
     // Atualiza campos ao mudar quantidade de serviços
     qtdInput.addEventListener("input", function () {

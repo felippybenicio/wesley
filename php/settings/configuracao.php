@@ -93,6 +93,52 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
         exit;
     }
 
+
+   $dadosServicos = [];
+
+    $sqlservico = "SELECT * FROM servico";
+    $result = $conn->query($sqlservico);
+
+    if ($result && $result->num_rows > 0) {
+        while ($rowServico = $result->fetch_assoc()) {
+            $dadosServicos[] = [
+                'tipo' => $rowServico['tipo_servico'],
+                'valor' => $rowServico['valor'],
+                'qtFunc' => $rowServico['quantidade_de_funcionarios'],
+                'duracao' => $rowServico['duracao_servico'],
+                'intervalo' => $rowServico['intervalo_entre_servico']
+            ];
+        }
+    }
+
+
+
+
+
+
+
+    $mesesIndisponiveis = [];
+    $res1 = $conn->query("SELECT mes FROM mes_indisponivel");
+    if ($res1) {
+        while ($linha = $res1->fetch_assoc()) {
+            $mesesIndisponiveis[] = (int)$linha['mes'];
+        }
+    } else {
+        die("Erro ao carregar meses: " . $conn->error);
+    }
+
+
+    $diasSemanaIndisponiveis = [];
+    $res2 = $conn->query("SELECT dia_semana FROM semana_indisponivel");
+    if ($res2) {
+        while ($linha = $res2->fetch_assoc()) {
+            $diasSemanaIndisponiveis[] = (int)$linha['dia_semana'];
+        }
+    } else {
+        die("Erro ao carregar dias da semana: " . $conn->error);
+    }
+
+
     $sqlHoras = "SELECT * FROM horario_config";
     $result = $conn->query($sqlHoras);
 
@@ -119,6 +165,20 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
         }
     }
 ?>
+        <script>
+            const dadosServicos = <?= json_encode($dadosServicos) ?>;
+        </script>
+
+        <script>
+            const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
+        </script>
+
+        <script>
+            const tiposPHP = <?= json_encode($tipos, JSON_HEX_TAG) ?>;
+            const valoresPHP = <?= json_encode($valores, JSON_HEX_TAG) ?>;
+            const qtdFuncsPHP = <?= json_encode($qtdFuncs, JSON_HEX_TAG) ?>;
+            const funcionariosPHP = <?= json_encode($funcionarios, JSON_HEX_TAG) ?>;
+        </script>
 
         <h1>Configuração</h1>
         <form action="<?= $_SERVER['PHP_SELF'] ?>" method="post">
@@ -265,17 +325,6 @@ while ($row = $result->fetch_assoc()) {
 }
 ?>
 
-
-<script>
-    const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
-</script>
-
-<script>
-    const tiposPHP = <?= json_encode($tipos, JSON_HEX_TAG) ?>;
-    const valoresPHP = <?= json_encode($valores, JSON_HEX_TAG) ?>;
-    const qtdFuncsPHP = <?= json_encode($qtdFuncs, JSON_HEX_TAG) ?>;
-    const funcionariosPHP = <?= json_encode($funcionarios, JSON_HEX_TAG) ?>;
-</script>
 </ul>
 
 
