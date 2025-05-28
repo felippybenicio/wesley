@@ -101,17 +101,7 @@ let anoAtual = agora.getFullYear();
 
     // Inicializa com dados do POST (se houver)
     criarCampos(servicosPost);
-    
-    document.addEventListener("DOMContentLoaded", () => {
-    if (Array.isArray(dadosServicos)) {
-        document.getElementById('quantidadeServicos').value = dadosServicos.length;
 
-        dadosServicos.forEach((servico, index) => {
-            const i = index + 1;
-            adicionarCamposServico(i, servico.tipo, servico.valor, servico.qtFunc, servico.duracao, servico.intervalo);
-        });
-    }
-});
 
 
     // Atualiza campos ao mudar quantidade de serviços
@@ -134,7 +124,7 @@ let anoAtual = agora.getFullYear();
     const qtdInput = document.getElementById("quantidadeServicos");
 
     function coletarDadosAtuais() {
-        const qtdInput = document.getElementById("quantidadeServicos"); // Adicione esta linha aqui!
+        const qtdInput = document.getElementById("quantidadeServicos");
         const dados = {};
         const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
 
@@ -447,6 +437,15 @@ let anoAtual = agora.getFullYear();
         `;
         tbody.appendChild(row);
     });
+
+    const salvar = document.getElementById('salvar')
+
+    salvar.addEventListener('click', function () {
+    setTimeout(() => {
+        location.reload();
+    }, 500); // tempo em milissegundos (500ms = meio segundo)
+});
+
 
 });
 

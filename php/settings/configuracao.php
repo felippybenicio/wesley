@@ -111,33 +111,45 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
         }
     }
 
+    
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Limpar as tabelas
+    $conn->query("DELETE FROM mes_indisponivel");
+    $conn->query("DELETE FROM semana_indisponivel");
 
-
-
-
-
-
-    $mesesIndisponiveis = [];
-    $res1 = $conn->query("SELECT mes FROM mes_indisponivel");
-    if ($res1) {
-        while ($linha = $res1->fetch_assoc()) {
-            $mesesIndisponiveis[] = (int)$linha['mes'];
+    // Inserir meses
+    if (!empty($_POST['mesIndisponivel'])) {
+        foreach ($_POST['mesIndisponivel'] as $mes) {
+            $conn->query("INSERT INTO mes_indisponivel (mes) VALUES (" . (int)$mes . ")");
         }
-    } else {
-        die("Erro ao carregar meses: " . $conn->error);
     }
 
-
-    $diasSemanaIndisponiveis = [];
-    $res2 = $conn->query("SELECT dia_semana FROM semana_indisponivel");
-    if ($res2) {
-        while ($linha = $res2->fetch_assoc()) {
-            $diasSemanaIndisponiveis[] = (int)$linha['dia_semana'];
+    // Inserir dias da semana
+    if (!empty($_POST['semanaIndisponivel'])) {
+        foreach ($_POST['semanaIndisponivel'] as $dia) {
+            $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES (" . (int)$dia . ")");
         }
-    } else {
-        die("Erro ao carregar dias da semana: " . $conn->error);
     }
+}
 
+// CARREGAR os dados após salvar
+$mesesIndisponiveis = [];
+$res1 = $conn->query("SELECT mes FROM mes_indisponivel");
+if ($res1) {
+    while ($linha = $res1->fetch_assoc()) {
+        $mesesIndisponiveis[] = (int)$linha['mes'];
+    }
+}
+
+$diasSemanaIndisponiveis = [];
+$res2 = $conn->query("SELECT dia_semana FROM semana_indisponivel");
+if ($res2) {
+    while ($linha = $res2->fetch_assoc()) {
+        $diasSemanaIndisponiveis[] = (int)$linha['dia_semana'];
+    }
+}
+
+    
 
     $sqlHoras = "SELECT * FROM horario_config";
     $result = $conn->query($sqlHoras);
@@ -165,9 +177,7 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
         }
     }
 ?>
-        <script>
-            const dadosServicos = <?= json_encode($dadosServicos) ?>;
-        </script>
+
 
         <script>
             const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
@@ -425,33 +435,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
         }
     }
 
-        // Horas
-        
-        $tipos = $_POST['tipoDia'] ?? [];
-            $inicios = $_POST['inicio'] ?? [];
-            $fins = $_POST['fim'] ?? [];
+    // Horas
+    
+    $tipos = $_POST['tipoDia'] ?? [];
+        $inicios = $_POST['inicio'] ?? [];
+        $fins = $_POST['fim'] ?? [];
 
-            if (count($tipos) === count($inicios) && count($inicios) === count($fins)) {
+        if (count($tipos) === count($inicios) && count($inicios) === count($fins)) {
 
-                // Apaga os registros antigos
-                $conn->query("DELETE FROM horario_config");
+            // Apaga os registros antigos
+            $conn->query("DELETE FROM horario_config");
 
-                $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
 
-                foreach ($tipos as $i => $tipo) {
-                    $horaInicio = $inicios[$i];
-                    $horaFim = $fins[$i];
+            foreach ($tipos as $i => $tipo) {
+                $horaInicio = $inicios[$i];
+                $horaFim = $fins[$i];
 
-                    if ($horaInicio && $horaFim) {
-                        $stmt->bind_param("sss", $tipo, $horaInicio, $horaFim);
-                        $stmt->execute();
-                    }
+                if ($horaInicio && $horaFim) {
+                    $stmt->bind_param("sss", $tipo, $horaInicio, $horaFim);
+                    $stmt->execute();
                 }
+            }
 
-                $stmt->close();
-            } 
-            
-
+            $stmt->close();
+        } 
+         
         
 
 
@@ -494,22 +503,23 @@ if (!$stmt->execute()) {
 }
 
 
+        // Salvar meses indisponíveis
         $conn->query("DELETE FROM mes_indisponivel");
-        foreach ($mesesIndisponiveis as $mes) {
-            $stmt = $conn->prepare("INSERT INTO mes_indisponivel (mes) VALUES (?)");
-            $stmt->bind_param("i", $mes);
-            $stmt->execute();
-            $stmt->close();
+        if (isset($_POST['mesIndisponivel'])) {
+            foreach ($_POST['mesIndisponivel'] as $mes) {
+                $mes = (int)$mes;
+                $conn->query("INSERT INTO mes_indisponivel (mes) VALUES ($mes)");
+            }
         }
 
+        // Salvar dias da semana indisponíveis
         $conn->query("DELETE FROM semana_indisponivel");
-        foreach ($diasSemanaIndisponiveis as $diaSemana) {
-            $stmt = $conn->prepare("INSERT INTO semana_indisponivel (dia_semana) VALUES (?)");
-            $stmt->bind_param("i", $diaSemana);
-            $stmt->execute();
-            $stmt->close();
+        if (isset($_POST['semanaIndisponivel'])) {
+            foreach ($_POST['semanaIndisponivel'] as $dia) {
+                $dia = (int)$dia;
+                $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES ($dia)");
+            }
         }
-
 
 
 
@@ -610,9 +620,6 @@ if (!$stmt->execute()) {
 
         
 }
-// FALTA
-// preencher assim q entro
-// arrumar para subistituir informaçoes dos serviçoes
 
 ?>
 
