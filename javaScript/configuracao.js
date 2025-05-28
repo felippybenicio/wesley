@@ -1,4 +1,3 @@
-
 const dias = document.querySelectorAll("td.data");
 const ul = document.querySelector("ul");
 const mesSelect = document.getElementById('mesSelect');
@@ -12,7 +11,6 @@ let anoAtual = agora.getFullYear();
 
 
 //SERVIÇOS E FUNCIONARIOS
-    document.addEventListener("DOMContentLoaded", function () {
     const qtdInput = document.getElementById("quantidadeServicos");
     const container = document.getElementById("camposServicos");
 
@@ -33,12 +31,12 @@ let anoAtual = agora.getFullYear();
 
     for (let i = 1; i <= qtd; i++) {
         const s = dados[i - 1] || {};
-        const tipo = s.tipo || "";
+        const tipo = s.tipo_servico || "";
         const valor = s.valor || "";
-        const qtFunc = parseInt(s.qtFuncionario || 1);
+        const qtFunc = parseInt(s.quantidade_de_funcionario || 1);
         const funcionarios = s.funcionarios || [];
-        const duracao = formatarHora(s.duracao || "");
-        const intervalo = formatarHora(s.intervalo || "");
+        const duracao = formatarHora(s.duracao_servico || "");
+        const intervalo = formatarHora(s.intervalo_entre_servico || "");
 
         const bloco = document.createElement("div");
         bloco.innerHTML = `
@@ -70,6 +68,24 @@ let anoAtual = agora.getFullYear();
 
             <div id="funcionarios${i}"></div>
         `;
+        const divFuncionarios = bloco.querySelector(`#funcionarios${i}`);
+        divFuncionarios.innerHTML = ''; // limpa
+
+        if (Array.isArray(funcionarios) && funcionarios.length > 0) {
+            funcionarios.forEach((nomeFunc, indexFunc) => {
+                const j = indexFunc + 1;
+                const inputFunc = document.createElement('input');
+                inputFunc.type = 'text';
+                inputFunc.name = `funcionario${i}_${j}`;
+                inputFunc.id = `funcionario${i}_${j}`;
+                inputFunc.value = nomeFunc;
+                inputFunc.placeholder = `Funcionário ${j}`;
+
+                divFuncionarios.appendChild(inputFunc);
+                divFuncionarios.appendChild(document.createElement('br'));
+            });
+        }
+
 
         container.appendChild(bloco);
 
@@ -100,28 +116,23 @@ let anoAtual = agora.getFullYear();
     }
 
     // Inicializa com dados do POST (se houver)
-    criarCampos(servicosPost);
+    criarCampos(window.dadosServicosSalvos || []);
+
+    document.addEventListener("DOMContentLoaded", function () {
+    
 
 
 
-    // Atualiza campos ao mudar quantidade de serviços
-    qtdInput.addEventListener("input", function () {
-    const dadosAtuais = coletarDadosAtuais(); // coleta o que o usuário já digitou
-    const dadosArray = [];
 
-    // transforma o objeto em array, pois criarCampos espera um array
-    for (let i = 1; i <= 5; i++) {
-        if (dadosAtuais[i]) {
-            dadosArray.push(dadosAtuais[i]);
-        }
-    }
+// qtdInput.addEventListener("input", function () {
+//         const dados = coletarDadosAtuais();
+//         criarCampos(dados);
+//         criarCampos(window.dadosServicosSalvos || []);
+//     });
+   
+    
+});
 
-    criarCampos(dadosArray);
-    });
-
-    });
-
-    const qtdInput = document.getElementById("quantidadeServicos");
 
     function coletarDadosAtuais() {
         const qtdInput = document.getElementById("quantidadeServicos");
@@ -159,8 +170,49 @@ let anoAtual = agora.getFullYear();
             };
         }
 
+        
+
         return dados;
+        
     }
+
+    
+    function garantirQuantidadeDeServicos(dados, qtFunc) {
+    const novaLista = [];
+    for (let i = 0; i < qtFunc; i++) {
+        novaLista[i] = dados[i] || {
+            tipo_servico: "",
+            valor: "",
+            quantidade_de_funcionarios: 1,
+            duracao_servico: "",
+            intervalo_entre_servico: "",
+            funcionarios: []
+        };
+    }
+
+
+    return novaLista;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const qtdInput = document.getElementById("quantidadeServicos");
+
+    if (window.dadosServicosSalvos && window.dadosServicosSalvos.length > 0) {
+        qtdInput.value = window.dadosServicosSalvos.length;
+    } else {
+        qtdInput.value = 1;
+    }
+
+    let dadosIniciais = garantirQuantidadeDeServicos(window.dadosServicosSalvos || [], parseInt(qtdInput.value));
+    criarCampos(dadosIniciais);
+
+    qtdInput.addEventListener("input", function () {
+        const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
+        const dadosAtuais = coletarDadosAtuais();
+        const dadosAjustados = garantirQuantidadeDeServicos(dadosAtuais, qtd);
+        criarCampos(dadosAjustados);
+    });
+});
 
 
     const nomesDosMeses = [

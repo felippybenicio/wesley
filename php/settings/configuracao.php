@@ -77,60 +77,99 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
     $conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+     // Limpa as tabelas
+    $conn->query("DELETE FROM funcionario"); // Precisa limpar antes, se desejar
+    $conn->query("DELETE FROM servico");
 
-    if (isset($_POST['remover_data'])) {
-        $stmt = $conn->prepare("INSERT INTO dia_indisponivel (data) VALUES (?)");
+    // Salva os novos serviços
+    $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
+    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 
-        $data = $_POST['remover_data'];
-        $sql = "DELETE FROM dia_indisponivel WHERE data = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $data);
+    for ($i = 1; $i <= $quantidadeServicos; $i++) {
+        $tipo = $_POST["tipo$i"] ?? '';
+        $valor = $_POST["valor$i"] ?? '';
+        $qtFuncionario = $_POST["qtFuncionario$i"] ?? 1;
+        $duracaoServico = $_POST["duracaoServico$i"] ?? '';
+        $intervaloServico = $_POST["intervaloServico$i"] ?? '';
+
+        // 1. Inserir o serviço
+        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
+        if (!$stmt) die("Erro na preparação da query de serviço: " . $conn->error);
+
+        $stmt->bind_param("ssiss", $tipo, $valor, $qtFuncionario, $duracaoServico, $intervaloServico);
         $stmt->execute();
+        $servicoId = $conn->insert_id; // 2. Pega o ID inserido
         $stmt->close();
-        // Recarrega a página
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
-    }
 
+        // 3. Inserir os funcionários ligados ao serviço
+        for ($j = 1; $j <= 5; $j++) {
+            $key = "funcionario{$i}_{$j}";
+            if (!empty($_POST[$key])) {
+                $nomeFuncionario = $_POST[$key];
 
-   $dadosServicos = [];
+                $stmtFunc = $conn->prepare("INSERT INTO funcionario (servico_id, nome) VALUES (?, ?)");
+                if (!$stmtFunc) die("Erro na preparação da query de funcionário: " . $conn->error);
 
-    $sqlservico = "SELECT * FROM servico";
-    $result = $conn->query($sqlservico);
-
-    if ($result && $result->num_rows > 0) {
-        while ($rowServico = $result->fetch_assoc()) {
-            $dadosServicos[] = [
-                'tipo' => $rowServico['tipo_servico'],
-                'valor' => $rowServico['valor'],
-                'qtFunc' => $rowServico['quantidade_de_funcionarios'],
-                'duracao' => $rowServico['duracao_servico'],
-                'intervalo' => $rowServico['intervalo_entre_servico']
-            ];
+                $stmtFunc->bind_param("is", $servicoId, $nomeFuncionario);
+                $stmtFunc->execute();
+                $stmtFunc->close();
+            }
         }
     }
 
-    
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Limpar as tabelas
+    // Salva meses e dias indisponíveis
     $conn->query("DELETE FROM mes_indisponivel");
     $conn->query("DELETE FROM semana_indisponivel");
 
-    // Inserir meses
     if (!empty($_POST['mesIndisponivel'])) {
         foreach ($_POST['mesIndisponivel'] as $mes) {
             $conn->query("INSERT INTO mes_indisponivel (mes) VALUES (" . (int)$mes . ")");
         }
     }
 
-    // Inserir dias da semana
     if (!empty($_POST['semanaIndisponivel'])) {
         foreach ($_POST['semanaIndisponivel'] as $dia) {
             $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES (" . (int)$dia . ")");
         }
     }
+
+    // Redireciona após salvar
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
 }
+
+////////
+$dadosServicos = [];
+
+$sql = "SELECT * FROM servico";
+$result = $conn->query($sql);
+
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $servicoId = $row['id'];
+
+        $stmt = $conn->prepare("SELECT nome FROM funcionario WHERE servico_id = ?");
+        $stmt->bind_param("i", $servicoId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+
+        $funcionarios = [];
+        while ($func = $res->fetch_assoc()) {
+            $funcionarios[] = $func['nome'];
+        }
+
+        $row['funcionarios'] = $funcionarios;
+        $dadosServicos[] = $row;
+
+        $stmt->close();
+    }
+}
+
+
+
+
 
 // CARREGAR os dados após salvar
 $mesesIndisponiveis = [];
@@ -178,6 +217,9 @@ if ($res2) {
     }
 ?>
 
+       
+  
+
 
         <script>
             const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
@@ -193,12 +235,13 @@ if ($res2) {
         <h1>Configuração</h1>
         <form action="<?= $_SERVER['PHP_SELF'] ?>" method="post">
             <h2>Serviços</h2>
-
+            
+           
             <label for="quantidadeServicos">Quantidade de serviços</label>
             <input type="number" name="quantidadeServicos" id="quantidadeServicos" value="<?= htmlspecialchars($quantidadeServicos) ?>" min="1" max="5">
 
-            <div id="camposServicos"></div>
-
+            <div id="camposServicos"><!--no js--></div>
+          
 
         
         <h2>mes indisponivel</h2>
@@ -391,8 +434,11 @@ while ($row = $result->fetch_assoc()) {
         
         <button type="submit" name="salvar" id="salvar">Salvar</button>
     </form>
-
-    <script src="../../javaScript/configuracao.js"></script>
+    <!-- <script>
+        const dados = <?= json_encode($dadosServicos, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?>;
+        const qtd = dados.length;
+    </script> -->
+    
 
     <?php
 
@@ -622,6 +668,14 @@ if (!$stmt->execute()) {
 }
 
 ?>
+>
 
+<script>
+    window.dadosServicosSalvos = <?= json_encode($dadosServicos, JSON_UNESCAPED_UNICODE); ?>;
+    console.log("DADOS DO PHP:", window.dadosServicosSalvos);
+</script>
+
+
+<script src="../../javaScript/configuracao.js"></script>
 </body>
 </html>
