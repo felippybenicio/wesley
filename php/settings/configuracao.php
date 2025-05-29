@@ -75,12 +75,25 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     
     
 
-    $conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
+$conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!empty($_POST['removerData'])) {
+        $data = $_POST['removerData'];
 
-     // Limpa as tabelas
-    $conn->query("DELETE FROM funcionario"); // Precisa limpar antes, se desejar
+        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ?");
+        $stmt->bind_param("s", $data);
+        $stmt->execute();
+        $stmt->close();
+
+        header("Location: " . $_SERVER['PHP_SELF']); // Atualiza a página
+        exit;
+    }
+    
+
+    // Limpa as tabelas relacionadas a serviços
+    $conn->query("DELETE FROM funcionario");
     $conn->query("DELETE FROM servico");
 
     // Salva os novos serviços
@@ -94,24 +107,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $duracaoServico = $_POST["duracaoServico$i"] ?? '';
         $intervaloServico = $_POST["intervaloServico$i"] ?? '';
 
-        // 1. Inserir o serviço
         $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
         if (!$stmt) die("Erro na preparação da query de serviço: " . $conn->error);
 
         $stmt->bind_param("ssiss", $tipo, $valor, $qtFuncionario, $duracaoServico, $intervaloServico);
         $stmt->execute();
-        $servicoId = $conn->insert_id; // 2. Pega o ID inserido
+        $servicoId = $conn->insert_id;
         $stmt->close();
 
-        // 3. Inserir os funcionários ligados ao serviço
         for ($j = 1; $j <= 5; $j++) {
             $key = "funcionario{$i}_{$j}";
             if (!empty($_POST[$key])) {
                 $nomeFuncionario = $_POST[$key];
-
                 $stmtFunc = $conn->prepare("INSERT INTO funcionario (servico_id, nome) VALUES (?, ?)");
                 if (!$stmtFunc) die("Erro na preparação da query de funcionário: " . $conn->error);
-
                 $stmtFunc->bind_param("is", $servicoId, $nomeFuncionario);
                 $stmtFunc->execute();
                 $stmtFunc->close();
@@ -119,7 +128,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Salva meses e dias indisponíveis
+    
+
+    // Salva meses e dias da semana indisponíveis
     $conn->query("DELETE FROM mes_indisponivel");
     $conn->query("DELETE FROM semana_indisponivel");
 
@@ -135,12 +146,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Redireciona após salvar
-    header("Location: " . $_SERVER['PHP_SELF']);
-    exit;
-}
+    // Salva dias específicos indisponíveis
+    if (!empty($_POST['diasIndisponiveis'])) {
+        foreach ($_POST['diasIndisponiveis'] as $data) {
+            $check = $conn->prepare("SELECT COUNT(*) FROM dia_indisponivel WHERE data = ?");
+            $check->bind_param("s", $data);
+            $check->execute();
+            $check->bind_result($count);
+            $check->fetch();
+            $check->close();
 
-////////
+            if ($count == 0) {
+                $stmt = $conn->prepare("INSERT INTO dia_indisponivel (data) VALUES (?)");
+                $stmt->bind_param("s", $data);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+    }
+
+    $data = $_POST['dataParaRemover'] ?? null;
+
+    if ($data) {
+        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ?");
+        $stmt->bind_param("s", $data);
+        $stmt->execute();
+        $stmt->close();
+
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+
+
+       
+    
+
+    // Salva os horários
+    $conn->query("DELETE FROM horario_config");
+
+    if (!empty($_POST['tipoDia']) && is_array($_POST['tipoDia'])) {
+        foreach ($_POST['tipoDia'] as $i => $tipoDia) {
+            $inicio = $_POST['inicio'][$i] ?? '';
+            $fim = $_POST['fim'][$i] ?? '';
+
+            if (isset($tipoDia) && $inicio !== '' && $fim !== '') {
+                $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
+                $stmt->bind_param("sss", $tipoDia, $inicio, $fim);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+    }
+    $conn->close();
+        error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+
+    var_dump($_POST);
+
+
+        // Tudo certo, agora pode redirecionar
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+
 $dadosServicos = [];
 
 $sql = "SELECT * FROM servico";
@@ -215,12 +285,7 @@ if ($res2) {
             }
         }
     }
-?>
-
-       
-  
-
-
+?>      
         <script>
             const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
         </script>
@@ -363,20 +428,19 @@ if ($res2) {
         <h3 id="naoFuncionamento"><!--titulo da lista--></h3>
 
 <ul>
-<?php
-// Buscar as datas
-$result = $conn->query("SELECT data FROM dia_indisponivel ORDER BY data ASC");
+    <?php
+    // Buscar as datas
+    $result = $conn->query("SELECT data FROM dia_indisponivel ORDER BY data ASC");
 
-while ($row = $result->fetch_assoc()) {
-    $data = $row['data'];
-    echo "<li>
-            
+    while ($row = $result->fetch_assoc()) {
+        $data = $row['data'];
+        echo "<li>
                 <input type='date' value='$data' readonly>
-                <button type='submit' name='remover_data' value='$data'>Remover</button>
-            
-          </li>";
-}
-?>
+                <button type='submit' name='removerData' value='$data'>Remover</button>
+              </li>";
+    }
+    ?>
+
 
 </ul>
 
@@ -434,10 +498,10 @@ while ($row = $result->fetch_assoc()) {
         
         <button type="submit" name="salvar" id="salvar">Salvar</button>
     </form>
-    <!-- <script>
+    <script>
         const dados = <?= json_encode($dadosServicos, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?>;
         const qtd = dados.length;
-    </script> -->
+    </script>
     
 
     <?php
@@ -483,7 +547,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
 
     // Horas
     
-    $tipos = $_POST['tipoDia'] ?? [];
+        $tipos = $_POST['tipoDia'] ?? [];
         $inicios = $_POST['inicio'] ?? [];
         $fins = $_POST['fim'] ?? [];
 
@@ -568,54 +632,6 @@ if (!$stmt->execute()) {
         }
 
 
-
-        // Dias do mês indisponíveis
-
-        $diasIndisponiveis = isset($_POST["diasIndisponiveis"]) ? $_POST["diasIndisponiveis"] : [];
-
-        if (is_array($diasIndisponiveis)) {
-            foreach ($diasIndisponiveis as $data) {
-                // Verifica se a data já existe no banco
-                $check = $conn->prepare("SELECT COUNT(*) FROM dia_indisponivel WHERE data = ?");
-                $check->bind_param("s", $data);
-                $check->execute();
-                $check->bind_result($count);
-                $check->fetch();
-                $check->close();
-
-                if ($count == 0) {
-                    // Só insere se ainda não estiver no banco
-                    $stmt = $conn->prepare("INSERT INTO dia_indisponivel (data) VALUES (?)");
-                    $stmt->bind_param("s", $data);
-                    $stmt->execute();
-                    $stmt->close();
-                }
-            }
-        }
-
-        exit;
-
-        if (isset($_POST['data'])) {
-        require 'conexao.php'; // ou onde está sua conexão
-
-        $data = $_POST['data'];
-        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ?");
-        $stmt->bind_param("s", $data);
-
-        if ($stmt->execute()) {
-            echo "OK";
-        } else {
-            echo "Erro ao deletar: " . $stmt->error;
-        }
-
-        $stmt->close();
-        $conn->close();
-    } else {
-        echo "Data não recebida";
-    }
-
-
-
         $mes = [
             "janeiro", "fevereiro", "março", "abril", "maio", "junho",
             "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
@@ -668,7 +684,6 @@ if (!$stmt->execute()) {
 }
 
 ?>
->
 
 <script>
     window.dadosServicosSalvos = <?= json_encode($dadosServicos, JSON_UNESCAPED_UNICODE); ?>;

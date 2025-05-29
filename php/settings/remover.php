@@ -2,7 +2,11 @@
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = $_POST['data'] ?? '';
 
-    $conn = new mysqli("localhost', 'root', 'Duk23092020$$', 'consultorio");
+    // ✅ Mostre o que chegou (debug temporário)
+    file_put_contents("debug.txt", "DATA RECEBIDA: " . $data . PHP_EOL, FILE_APPEND);
+
+    // Corrige a string de conexão
+    $conn = new mysqli("localhost", "root", "Duk23092020$$", "consultorio");
     if ($conn->connect_error) {
         http_response_code(500);
         echo "Erro ao conectar ao banco.";
@@ -14,12 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
 
     if ($stmt->affected_rows > 0) {
-        echo "Dia removido com sucesso.";
+        echo "OK";
     } else {
-        http_response_code(400);
         echo "Dia não encontrado.";
     }
 
     $stmt->close();
     $conn->close();
 }
+?>

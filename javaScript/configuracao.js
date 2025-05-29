@@ -14,26 +14,57 @@ let anoAtual = agora.getFullYear();
     const qtdInput = document.getElementById("quantidadeServicos");
     const container = document.getElementById("camposServicos");
 
-
-    function criarCampos(dados = []) {
+function criarCampos(dados = []) {
     const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
+
+
+    const dadosSalvos = [];
+    for (let i = 1; i <= container.children.length; i++) {
+        const tipo = document.querySelector(`#tipo${i}`)?.value || "";
+        const valor = document.querySelector(`#valor${i}`)?.value || "";
+        const duracao = document.querySelector(`#duracaoServico${i}`)?.value || "";
+        const intervalo = document.querySelector(`#intervaloServico${i}`)?.value || "";
+        const qtFunc = parseInt(document.querySelector(`#qtFuncionario${i}`)?.value || "1");
+        const funcionarios = [];
+
+        for (let j = 1; j <= qtFunc; j++) {
+            const nome = document.querySelector(`#funcionario${i}_${j}`)?.value || "";
+            funcionarios.push(nome);
+        }
+
+        dadosSalvos.push({
+            tipo_servico: tipo,
+            valor: valor,
+            duracao_servico: duracao,
+            intervalo_entre_servico: intervalo,
+            quantidade_de_funcionarios: qtFunc,
+            funcionarios: funcionarios
+        });
+    }
+
+    // 2. Preenche os novos blocos com os dados já preenchidos ou os dados originais
+    const dadosUsar = [];
+    for (let i = 0; i < qtd; i++) {
+        dadosUsar[i] = dadosSalvos[i] || dados[i] || {};
+    }
+
     container.innerHTML = "";
 
     function formatarHora(hora) {
-      if (!hora) return "";
-      if (hora.length > 5) hora = hora.slice(0, 5);
-      const partes = hora.split(":");
-      if (partes.length < 2) return "";
-      let hh = partes[0].padStart(2, "0");
-      let mm = partes[1].padStart(2, "0");
-      return `${hh}:${mm}`;
+        if (!hora) return "";
+        if (hora.length > 5) hora = hora.slice(0, 5);
+        const partes = hora.split(":");
+        if (partes.length < 2) return "";
+        let hh = partes[0].padStart(2, "0");
+        let mm = partes[1].padStart(2, "0");
+        return `${hh}:${mm}`;
     }
 
     for (let i = 1; i <= qtd; i++) {
-        const s = dados[i - 1] || {};
+        const s = dadosUsar[i - 1] || {};
         const tipo = s.tipo_servico || "";
         const valor = s.valor || "";
-        const qtFunc = parseInt(s.quantidade_de_funcionario || 1);
+        const qtFunc = parseInt(s.quantidade_de_funcionarios || 1);
         const funcionarios = s.funcionarios || [];
         const duracao = formatarHora(s.duracao_servico || "");
         const intervalo = formatarHora(s.intervalo_entre_servico || "");
@@ -68,70 +99,37 @@ let anoAtual = agora.getFullYear();
 
             <div id="funcionarios${i}"></div>
         `;
-        const divFuncionarios = bloco.querySelector(`#funcionarios${i}`);
-        divFuncionarios.innerHTML = ''; // limpa
 
-        if (Array.isArray(funcionarios) && funcionarios.length > 0) {
-            funcionarios.forEach((nomeFunc, indexFunc) => {
-                const j = indexFunc + 1;
-                const inputFunc = document.createElement('input');
-                inputFunc.type = 'text';
-                inputFunc.name = `funcionario${i}_${j}`;
-                inputFunc.id = `funcionario${i}_${j}`;
-                inputFunc.value = nomeFunc;
-                inputFunc.placeholder = `Funcionário ${j}`;
+        const funcContainer = bloco.querySelector(`#funcionarios${i}`);
 
-                divFuncionarios.appendChild(inputFunc);
-                divFuncionarios.appendChild(document.createElement('br'));
-            });
+        function atualizarFuncionarios(qtdF) {
+            funcContainer.innerHTML = "";
+            for (let j = 1; j <= qtdF; j++) {
+                const nome = funcionarios[j - 1] || "";
+                const fDiv = document.createElement("div");
+                fDiv.innerHTML = `
+                    <label for="funcionario${i}_${j}">Nome do funcionário ${j}:</label>
+                    <input type="text" name="funcionario${i}_${j}" id="funcionario${i}_${j}" value="${nome}">
+                `;
+                funcContainer.appendChild(fDiv);
+            }
         }
 
+        atualizarFuncionarios(qtFunc);
+
+        // evento para mudar quantidade de funcionários
+        bloco.querySelector(`#qtFuncionario${i}`).addEventListener("input", function () {
+            const novaQtd = Math.min(Math.max(parseInt(this.value) || 1, 1), 5);
+            atualizarFuncionarios(novaQtd);
+        });
 
         container.appendChild(bloco);
-
-
-            const qtFuncInput = bloco.querySelector(`#qtFuncionario${i}`);
-            const funcContainer = bloco.querySelector(`#funcionarios${i}`);
-
-            function atualizarFuncionarios(qtdF) {
-                funcContainer.innerHTML = "";
-                for (let j = 1; j <= qtdF; j++) {
-                    const nome = funcionarios[j - 1] || "";
-                    const fDiv = document.createElement("div");
-                    fDiv.innerHTML = `
-                        <label for="funcionario${i}_${j}">Nome do funcionário ${j}:</label>
-                        <input type="text" name="funcionario${i}_${j}" id="funcionario${i}_${j}" value="${nome}">
-                    `;
-                    funcContainer.appendChild(fDiv);
-                }
-            }
-
-            atualizarFuncionarios(qtFunc);
-
-            qtFuncInput.addEventListener("input", function () {
-                const novaQtd = Math.min(Math.max(parseInt(qtFuncInput.value) || 1, 1), 5);
-                atualizarFuncionarios(novaQtd);
-            });
-        }
     }
 
-    // Inicializa com dados do POST (se houver)
-    criarCampos(window.dadosServicosSalvos || []);
 
-    document.addEventListener("DOMContentLoaded", function () {
-    
+}
 
 
-
-
-// qtdInput.addEventListener("input", function () {
-//         const dados = coletarDadosAtuais();
-//         criarCampos(dados);
-//         criarCampos(window.dadosServicosSalvos || []);
-//     });
-   
-    
-});
 
 
     function coletarDadosAtuais() {
@@ -149,26 +147,24 @@ let anoAtual = agora.getFullYear();
             if (!tipoInput || !valorInput || !qtFuncInput) continue;
 
             const tipo = tipoInput.value || "";
-            const valor = valorInput.value || "";
+            const valor = "";
             const qtFuncionario = parseInt(qtFuncInput.value) || 1;
             const duracao = duracaoInput ? duracaoInput.value : "";
             const intervalo = intervaloInput ? intervaloInput.value : "";
 
             const funcionarios = [];
             for (let j = 1; j <= qtFuncionario; j++) {
-                const fInput = document.querySelector(`#funcionario${i}_${j}`);
-                funcionarios.push(fInput ? fInput.value : "");
+                
             }
-
-            dados[i] = {
-                tipo,
-                valor,
-                qtFuncionario,
-                funcionarios,
-                duracao,
-                intervalo
-            };
-        }
+                dados[i] = {
+                    tipo,
+                    valor,
+                    qtFuncionario,
+                    funcionarios,
+                    duracao,
+                    intervalo
+                };
+            }
 
         
 
@@ -193,6 +189,7 @@ let anoAtual = agora.getFullYear();
 
     return novaLista;
 }
+
 
 document.addEventListener("DOMContentLoaded", function () {
     const qtdInput = document.getElementById("quantidadeServicos");
@@ -321,8 +318,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
-
-
     function diasDeNaoFucionamento() {
         const dias = document.querySelectorAll("td.data"); // atualiza os dias
 
@@ -345,18 +340,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 dia.style.pointerEvents = "none";
                 dia.style.opacity = "0.5";
 
+                                // Cria o <li> ANTES
                 const li = document.createElement("li");
+
+                // Título e estilos
                 h3.innerHTML = "Datas de não funcionamento";
                 h3.style.display = "block";
 
-                // Criar input visível
+                // Input da data
                 const inputData = document.createElement("input");
                 inputData.type = "date";
                 inputData.value = dataParaInput;
                 inputData.name = "diasIndisponiveis[]";
                 inputData.readOnly = true;
                 inputData.required = true;
-                
 
                 // Botão de remover
                 const btnRemover = document.createElement("button");
@@ -364,28 +361,51 @@ document.addEventListener("DOMContentLoaded", function () {
                 btnRemover.style.marginLeft = "10px";
                 btnRemover.style.cursor = "pointer";
 
+                // Agora sim: o botão vê o <li>
                 btnRemover.addEventListener("click", () => {
-                    li.remove();
+                const dataRemover = li.querySelector("input[type='date']").value;
 
-                    // Reativa o dia no calendário
-                    const diaElement = document.getElementById(parseInt(diaNumero, 10));
-                    if (diaElement) {
-                        diaElement.classList.remove("desabilitado");
-                        diaElement.style.pointerEvents = "auto";
-                        diaElement.style.opacity = "1";
+                fetch("remover.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `data=${encodeURIComponent(dataRemover)}`
+                })
+                .then(res => res.text())
+                .then(res => {
+                    console.log("Resposta do servidor:", res);
+                    if (res.trim() === "OK") {
+                        li.remove();
 
-                        if (ul.children.length === 0) {
-                            h3.style.display = "none";
+                        const diaElement = document.getElementById(parseInt(diaNumero, 10));
+                        if (diaElement) {
+                            diaElement.classList.remove("desabilitado");
+                            diaElement.style.pointerEvents = "auto";
+                            diaElement.style.opacity = "1";
+
+                            if (ul.children.length === 0) {
+                                h3.style.display = "none";
+                            }
                         }
+                    } else {
+                        alert("Erro ao remover data do banco: " + res);
                     }
+                })
+                .catch(err => {
+                    console.error("Erro na requisição:", err);
+                    alert("Erro ao comunicar com o servidor.");
                 });
-
-                li.appendChild(inputData);
-                li.appendChild(btnRemover);
-                ul.appendChild(li);
             });
-        });
-    }
+
+
+                            // Adiciona à tela
+                            li.appendChild(inputData);
+                            li.appendChild(btnRemover);
+                            ul.appendChild(li);
+                        });
+                    }
+                )}
+
+
 
 
         
