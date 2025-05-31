@@ -1,3 +1,21 @@
+<?php
+    include 'php/conexao.php';
+
+    $config = $conn->query("SELECT * FROM servico")->fetch_assoc();
+
+
+    $servico = $config['tipo_servico'];
+    $valor = $config['valor'];
+    $qtFuncionarios = $config['quantidade_de_funcionarios'];
+    $duracao = $config['duracao_servico'];
+    $intervalo = $config['intervalo_entre_servico'];
+    extract($config);
+
+    echo "$servico"
+    
+
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -45,10 +63,10 @@
                 <div>
                     <label for="servico">qual tipo de serviço voce gostaria</label>
                     <select name="servico" id="servico">
-                        <option value="opção 1">opção 1</option>
-                        <option value="opção 2">opção 2</option>
-                        <option value="opção 3">opção 3</option>
-                        <option value="opção 4">opção 4</option>
+                        <option value="opção 1"><?= $servico ?></option>
+                        <option value="opção 2"><?= $servico ?></option>
+                        <option value="opção 3"><?= $servico ?></option>
+                        <option value="opção 4"><?= $servico ?></option>
                     </select>
                 </div>
                 <div>

@@ -11,21 +11,24 @@ let anoAtual = agora.getFullYear();
 
 
 //SERVIÇOS E FUNCIONARIOS
+
     const qtdInput = document.getElementById("quantidadeServicos");
     const container = document.getElementById("camposServicos");
 
-function criarCampos(dados = []) {
+    function criarCampos(dados = []) {
+
     const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
 
 
     const dadosSalvos = [];
-    for (let i = 1; i <= container.children.length; i++) {
-        const tipo = document.querySelector(`#tipo${i}`)?.value || "";
-        const valor = document.querySelector(`#valor${i}`)?.value || "";
-        const duracao = document.querySelector(`#duracaoServico${i}`)?.value || "";
-        const intervalo = document.querySelector(`#intervaloServico${i}`)?.value || "";
-        const qtFunc = parseInt(document.querySelector(`#qtFuncionario${i}`)?.value || "1");
-        const funcionarios = [];
+    for (let i = 0; i < dados.length; i++) {
+    const tipo = dados[i]?.tipo_servico || "";
+    const valor = dados[i]?.valor || "";
+    const duracao = dados[i]?.duracao_servico || "";
+    const intervalo = dados[i]?.intervalo_entre_servico || "";
+    const qtFunc = parseInt(dados[i]?.quantidade_de_funcionarios || "1");
+    const funcionarios = dados[i]?.funcionarios || [];
+
 
         for (let j = 1; j <= qtFunc; j++) {
             const nome = document.querySelector(`#funcionario${i}_${j}`)?.value || "";
@@ -33,20 +36,25 @@ function criarCampos(dados = []) {
         }
 
         dadosSalvos.push({
-            tipo_servico: tipo,
-            valor: valor,
-            duracao_servico: duracao,
-            intervalo_entre_servico: intervalo,
-            quantidade_de_funcionarios: qtFunc,
-            funcionarios: funcionarios
-        });
-    }
+        id: dados[i]?.id || "",
+        tipo_servico: tipo,
+        valor: valor,
+        duracao_servico: duracao,
+        intervalo_entre_servico: intervalo,
+        quantidade_de_funcionarios: qtFunc,
+        funcionarios: funcionarios
+    });
+}
+
+
 
     // 2. Preenche os novos blocos com os dados já preenchidos ou os dados originais
     const dadosUsar = [];
+
     for (let i = 0; i < qtd; i++) {
         dadosUsar[i] = dadosSalvos[i] || dados[i] || {};
     }
+
 
     container.innerHTML = "";
 
@@ -62,17 +70,21 @@ function criarCampos(dados = []) {
 
     for (let i = 1; i <= qtd; i++) {
         const s = dadosUsar[i - 1] || {};
+        const idServico = s.id || "";
         const tipo = s.tipo_servico || "";
         const valor = s.valor || "";
         const qtFunc = parseInt(s.quantidade_de_funcionarios || 1);
         const funcionarios = s.funcionarios || [];
         const duracao = formatarHora(s.duracao_servico || "");
         const intervalo = formatarHora(s.intervalo_entre_servico || "");
-
+       
+        
         const bloco = document.createElement("div");
         bloco.innerHTML = `
             <h3>Serviço ${i}</h3>
-            <div>
+           
+            <input type="hidden" name="id${i}" value="${idServico}">
+            
                 <label for="tipo${i}">Serviço:</label>
                 <input type="text" name="tipo${i}" id="tipo${i}" value="${tipo}">
             </div><br>
@@ -100,6 +112,24 @@ function criarCampos(dados = []) {
             <div id="funcionarios${i}"></div>
         `;
 
+
+        // const botaoDeletar = document.createElement("button");
+        // botaoDeletar.type = "button";
+        // botaoDeletar.textContent = "Deletar serviço";
+        // botaoDeletar.style.marginTop = "10px";
+        // botaoDeletar.addEventListener("click", () => {
+        //     if (idServico) {
+        //         const inputDel = document.createElement("input");
+        //         inputDel.type = "hidden";
+        //         inputDel.name = "deletar[]";
+        //         inputDel.value = idServico;
+        //         document.querySelector("form").appendChild(inputDel);
+        //     }
+        //     bloco.remove(); // remove o bloco visualmente
+        //         });
+ 
+        //     bloco.appendChild(botaoDeletar);
+
         const funcContainer = bloco.querySelector(`#funcionarios${i}`);
 
         function atualizarFuncionarios(qtdF) {
@@ -108,6 +138,7 @@ function criarCampos(dados = []) {
                 const nome = funcionarios[j - 1] || "";
                 const fDiv = document.createElement("div");
                 fDiv.innerHTML = `
+                    <input type="hidden" name="servicoId${i}_${j}" value="${idServico}">
                     <label for="funcionario${i}_${j}">Nome do funcionário ${j}:</label>
                     <input type="text" name="funcionario${i}_${j}" id="funcionario${i}_${j}" value="${nome}">
                 `;
@@ -128,8 +159,6 @@ function criarCampos(dados = []) {
 
 
 }
-
-
 
 
     function coletarDadosAtuais() {
@@ -156,14 +185,15 @@ function criarCampos(dados = []) {
             for (let j = 1; j <= qtFuncionario; j++) {
                 
             }
-                dados[i] = {
-                    tipo,
-                    valor,
-                    qtFuncionario,
-                    funcionarios,
-                    duracao,
-                    intervalo
+                dados[i - 1] = {  // Notei que no criarCampos o array é 0-indexed, então aqui melhor usar i-1
+                    tipo_servico: tipo,
+                    valor: valor,
+                    quantidade_de_funcionarios: qtFuncionario,
+                    duracao_servico: duracao,
+                    intervalo_entre_servico: intervalo,
+                    funcionarios: funcionarios
                 };
+
             }
 
         
@@ -189,6 +219,24 @@ function criarCampos(dados = []) {
 
     return novaLista;
 }
+/////////////////////////
+criarCampos(dadosServicos);
+
+setTimeout(() => {
+    // Aqui, o DOM já teve tempo de renderizar os campos
+    const qtd = document.getElementById("quantidadeServicos").value;
+    for (let i = 1; i <= qtd; i++) {
+        const s = dadosServicos[i - 1] || {};
+        document.getElementById(`tipo_servico${i}`).value = s.tipo_servico || "";
+        // e os outros campos...
+    }
+}, 50); // 50ms já costuma resolver
+//////////////////////////////
+
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("DOM pronto. Dados recebidos do PHP:", dadosServicos);
+    criarCampos(dadosServicos);
+});
 
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -210,6 +258,8 @@ document.addEventListener("DOMContentLoaded", function () {
         criarCampos(dadosAjustados);
     });
 });
+
+
 
 
     const nomesDosMeses = [
@@ -372,7 +422,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 })
                 .then(res => res.text())
                 .then(res => {
-                    console.log("Resposta do servidor:", res);
                     if (res.trim() === "OK") {
                         li.remove();
 
@@ -509,17 +558,8 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
         tbody.appendChild(row);
     });
+    })
 
-    const salvar = document.getElementById('salvar')
-
-    salvar.addEventListener('click', function () {
-    setTimeout(() => {
-        location.reload();
-    }, 500); // tempo em milissegundos (500ms = meio segundo)
-});
-
-
-});
 
 
 

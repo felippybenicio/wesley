@@ -1,13 +1,6 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>configuração</title>
-</head>
-<body>
-
 <?php
+
+include '../conexao.php';
 
 
 $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
@@ -16,6 +9,7 @@ $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 $servicosPost = [];
 
 for ($i = 1; $i <= $quantidadeServicos; $i++) {
+    $servicoId = $_POST["id$i"] ?? null;
     $tipo = $_POST["tipo$i"] ?? '';
     $valor = $_POST["valor$i"] ?? '';
     $qtFuncionario = $_POST["qtFuncionario$i"] ?? 1;
@@ -34,11 +28,12 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     }
 
     $servicosPost[$i - 1] = [ 
+        'id' => $servicoId,
         'tipo' => $tipo,
         'valor' => $valor,
         'qtFuncionario' => (int)$qtFuncionario,
         'funcionarios' => $funcionarios,
-        'duracao' => $duracaoServico,   
+        'duracao' => $duracaoServico,    
         'intervalo' => $intervaloServico   
     ];
 
@@ -48,6 +43,7 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $diasSemanaIndisponiveis = $_POST['semanaIndisponivel'] ?? [];
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
 
+    $servicoId = [];
     $tipos = [];
     $valores = [];
     $qtFuncionarios = [];
@@ -75,7 +71,7 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     
     
 
-$conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
+
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -93,41 +89,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
 
     // Limpa as tabelas relacionadas a serviços
-    $conn->query("DELETE FROM funcionario");
-    $conn->query("DELETE FROM servico");
-
-    // Salva os novos serviços
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
-    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
+$quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 
-    for ($i = 1; $i <= $quantidadeServicos; $i++) {
-        $tipo = $_POST["tipo$i"] ?? '';
-        $valor = $_POST["valor$i"] ?? '';
-        $qtFuncionario = $_POST["qtFuncionario$i"] ?? 1;
-        $duracaoServico = $_POST["duracaoServico$i"] ?? '';
-        $intervaloServico = $_POST["intervaloServico$i"] ?? '';
+for ($i = 1; $i <= $quantidadeServicos; $i++) {
+    $id = $_POST["id$i"] ?? null;  // pode ser null
+    $tipo = $_POST["tipo$i"] ?? '';
+    $valor = $_POST["valor$i"] ?? 0;
+    $qtFuncionarios = (int)($_POST["qtFuncionario$i"] ?? 1);
+    $duracao = $_POST["duracaoServico$i"] ?? '';
+    $intervalo = $_POST["intervaloServico$i"] ?? '';
 
-        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
-        if (!$stmt) die("Erro na preparação da query de serviço: " . $conn->error);
-
-        $stmt->bind_param("ssiss", $tipo, $valor, $qtFuncionario, $duracaoServico, $intervaloServico);
+    if (!empty($id) && is_numeric($id)) {
+        // Faz UPDATE pois id já existe
+        $stmt = $conn->prepare("UPDATE servico SET tipo_servico=?, valor=?, quantidade_de_funcionarios=?, duracao_servico=?, intervalo_entre_servico=? WHERE id=?");
+        $stmt->bind_param("sdissi", $tipo, $valor, $qtFuncionarios, $duracao, $intervalo, $id);
         $stmt->execute();
-        $servicoId = $conn->insert_id;
         $stmt->close();
 
-        for ($j = 1; $j <= 5; $j++) {
-            $key = "funcionario{$i}_{$j}";
-            if (!empty($_POST[$key])) {
-                $nomeFuncionario = $_POST[$key];
-                $stmtFunc = $conn->prepare("INSERT INTO funcionario (servico_id, nome) VALUES (?, ?)");
-                if (!$stmtFunc) die("Erro na preparação da query de funcionário: " . $conn->error);
-                $stmtFunc->bind_param("is", $servicoId, $nomeFuncionario);
-                $stmtFunc->execute();
-                $stmtFunc->close();
-            }
+        // Apaga funcionários antigos daquele serviço
+        $stmtDel = $conn->prepare("DELETE FROM funcionario WHERE servico_id = ?");
+        $stmtDel->bind_param("i", $id);
+        $stmtDel->execute();
+        $stmtDel->close();
+
+        $servicoId = $id; // para inserir os funcionários abaixo
+    } else {
+        // Insere novo serviço
+        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sdiss", $tipo, $valor, $qtFuncionarios, $duracao, $intervalo);
+        $stmt->execute();
+        $servicoId = $stmt->insert_id; // pega o id gerado no insert
+        $stmt->close();
+    }
+
+    // Insere funcionários para o serviço (novo ou atualizado)
+    for ($j = 1; $j <= $qtFuncionarios; $j++) {
+        $key = "funcionario{$i}_{$j}";
+        if (!empty($_POST[$key])) {
+            $nome = $_POST[$key];
+            $stmtFunc = $conn->prepare("INSERT INTO funcionario (servico_id, nome) VALUES (?, ?)");
+            $stmtFunc->bind_param("is", $servicoId, $nome);
+            $stmtFunc->execute();
+            $stmtFunc->close();
         }
     }
 
+
+
+
+// if (isset($_POST['deletar']) && is_array($_POST['deletar'])) {
+//     foreach ($_POST['deletar'] as $idDeletar) {
+//         $id = intval($idDeletar); // segurança
+//         $sql = "DELETE FROM servicos WHERE id = ?";
+//         $stmt = $conn->prepare($sql);
+//         $stmt->execute([$id]);
+//     }
+// }
+
+}
+
+
+// if (isset($_POST['deletar']) && is_array($_POST['deletar'])) {
+//     foreach ($_POST['deletar'] as $idDel) {
+//         $id = intval($idDel);
+
+//         // Deleta funcionários ligados ao serviço
+//         $stmt1 = $conn->prepare("DELETE FROM funcionario WHERE servico_id = ?");
+//         $stmt1->bind_param("i", $id);
+//         $stmt1->execute();
+//         $stmt1->close();
+
+//         // Deleta o serviço
+//         $stmt2 = $conn->prepare("DELETE FROM servico WHERE id = ?");
+//         $stmt2->bind_param("i", $id);
+//         $stmt2->execute();
+//         $stmt2->close();
+//     }
+// }
+
+
+
+
+
+
+    
     
 
     // Salva meses e dias da semana indisponíveis
@@ -198,12 +244,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-    $conn->close();
-        error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-
-    var_dump($_POST);
-
 
         // Tudo certo, agora pode redirecionar
         header("Location: " . $_SERVER['PHP_SELF']);
@@ -211,31 +251,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
-$dadosServicos = [];
-
-$sql = "SELECT * FROM servico";
-$result = $conn->query($sql);
-
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $servicoId = $row['id'];
-
-        $stmt = $conn->prepare("SELECT nome FROM funcionario WHERE servico_id = ?");
-        $stmt->bind_param("i", $servicoId);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        $funcionarios = [];
-        while ($func = $res->fetch_assoc()) {
-            $funcionarios[] = $func['nome'];
-        }
-
-        $row['funcionarios'] = $funcionarios;
-        $dadosServicos[] = $row;
-
-        $stmt->close();
+    $dadosSalvos = []; // Defina como array vazio se nada for buscado
+$res = $conn->query("SELECT * FROM servico");
+while ($row = $res->fetch_assoc()) {
+    // Preencha com os dados esperados no JS
+    $id = $row['id'];
+    $row['funcionarios'] = [];
+    $resFunc = $conn->query("SELECT nome FROM funcionario WHERE servico_id = $id");
+    while ($func = $resFunc->fetch_assoc()) {
+        $row['funcionarios'][] = $func['nome'];
     }
+    $dadosSalvos[] = $row;
 }
+
 
 
 
@@ -285,17 +313,22 @@ if ($res2) {
             }
         }
     }
-?>      
-        <script>
-            const servicosPost = <?= json_encode(array_values($servicosPost)) ?>;
-        </script>
 
-        <script>
-            const tiposPHP = <?= json_encode($tipos, JSON_HEX_TAG) ?>;
-            const valoresPHP = <?= json_encode($valores, JSON_HEX_TAG) ?>;
-            const qtdFuncsPHP = <?= json_encode($qtdFuncs, JSON_HEX_TAG) ?>;
-            const funcionariosPHP = <?= json_encode($funcionarios, JSON_HEX_TAG) ?>;
-        </script>
+?>    
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>configuração</title>
+</head>
+<body>
+
+
+
+
+
 
         <h1>Configuração</h1>
         <form action="<?= $_SERVER['PHP_SELF'] ?>" method="post">
@@ -498,11 +531,6 @@ if ($res2) {
         
         <button type="submit" name="salvar" id="salvar">Salvar</button>
     </form>
-    <script>
-        const dados = <?= json_encode($dadosServicos, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?>;
-        const qtd = dados.length;
-    </script>
-    
 
     <?php
 
@@ -686,11 +714,29 @@ if (!$stmt->execute()) {
 ?>
 
 <script>
-    window.dadosServicosSalvos = <?= json_encode($dadosServicos, JSON_UNESCAPED_UNICODE); ?>;
-    console.log("DADOS DO PHP:", window.dadosServicosSalvos);
+    const dadosServicos = <?php echo json_encode(isset($dadosSalvos) ? $dadosSalvos : []); ?>;
 </script>
 
 
-<script src="../../javaScript/configuracao.js"></script>
+<script src="/wesley/javaScript/configuracao.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const qtdInput = document.getElementById("quantidadeServicos");
+
+        if (dadosServicos.length > 0) {
+            qtdInput.value = dadosServicos.length;
+        }
+
+        criarCampos(dadosServicos);
+
+        qtdInput.addEventListener("input", () => {
+            criarCampos(dadosServicos);
+        });
+    });
+</script>
+
+
+
 </body>
 </html>

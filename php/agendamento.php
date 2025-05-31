@@ -34,7 +34,7 @@ switch ($servico) {
 }
 $valor_total = $valor * $duracao;
 
-$conn = new mysqli('localhost', 'root', 'Duk23092020$$', 'consultorio');
+include 'conexao.php';
 if ($conn->connect_error) {
     die("Erro na conexão com o banco: " . $conn->connect_error);
 }
