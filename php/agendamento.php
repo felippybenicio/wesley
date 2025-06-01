@@ -15,6 +15,8 @@ use MercadoPago\Item;
 
 SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
 
+include 'conexao.php';
+$configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
 
 $nome       = $_POST["nome"] ?? '';
 $sobrenome  = $_POST["sobrenome"] ?? '';
@@ -23,18 +25,30 @@ $email      = $_POST["email"] ?? '';
 $cpf        = $_POST["cpf"] ?? '';
 $cll        = $_POST["cll"] ?? '';
 $servico    = $_POST["servico"] ?? '';
-$duracao    = (int)($_POST["duracao"] ?? 1);
+preg_match('/\d+/', $_POST["duracao"], $match);
+$duracao = (int)($match[0] ?? 1);
 $dia        = $_POST["dia"] ?? '';
 $hora       = $_POST["hora"] ?? '';
 
-switch ($servico) {
-    case 'opção 1': $valor = 250.00; break;
-    case 'opção 2': $valor = 500.00; break;
-    default: $valor = 1000.00; break;
-}
-$valor_total = $valor * $duracao;
 
-include 'conexao.php';
+
+
+$valorAtual = 0;
+
+$valorAtual = 0;
+foreach ($configs as $config) {
+    $servicoConfig = $config['tipo_servico'];
+    $valor = $config['valor'];
+
+    if ($servico === $servicoConfig) {
+        $valorAtual = (float)$valor;
+        break;
+    }
+}
+
+// Calcula o valor total
+$valor_total = $valorAtual * $duracao;
+
 if ($conn->connect_error) {
     die("Erro na conexão com o banco: " . $conn->connect_error);
 }
@@ -99,37 +113,37 @@ $preference = new Preference();
 $preference->items = [$item];
 $preference->external_reference = $pagamento_id; 
 
-$base_url = "https://34e9-2804-7f0-b7c1-8d01-ad6a-bf67-45e3-30e5.ngrok-free.app/wesley";
+// $base_url = "https://eff4-2804-7f0-b7c1-d6ce-d45a-17d1-bce2-2a4f.ngrok-free.app/wesley";
 
 
-$preference->back_urls = [
-    "success" => $base_url . "/sucesso.html",
-    "failure" => $base_url . "/falha.html",
-    "pending" => $base_url . "/pendente.html"
-];
-$preference->auto_return = "approved";
-$preference->notification_url = $base_url . "/php/confirmacao_vendas/notificacao.php";
+// $preference->back_urls = [
+//     "success" => $base_url . "/sucesso.html",
+//     "failure" => $base_url . "/falha.html",
+//     "pending" => $base_url . "/pendente.html"
+// ];
+// $preference->auto_return = "approved";
+// $preference->notification_url = $base_url . "/php/confirmacao_vendas/notificacao.php";
 
-try {
-    $preference->save();
-    if (!$preference->init_point) {
-        throw new Exception("Erro ao gerar link de pagamento.");
-    }
-} catch (Exception $e) {
-    echo "<p style='color:red;'>Erro: " . htmlspecialchars($e->getMessage()) . "</p>";
-    exit;
-}
+// try {
+//     $preference->save();
+//     if (!$preference->init_point) {
+//         throw new Exception("Erro ao gerar link de pagamento.");
+//     }
+// } catch (Exception $e) {
+//     echo "<p style='color:red;'>Erro: " . htmlspecialchars($e->getMessage()) . "</p>";
+//     exit;
+// }
 
 
-$dadosPessoais->close();
-$pagamento->close();
-$conn->close();
+// $dadosPessoais->close();
+// $pagamento->close();
+// $conn->close();
 
 
 echo "<h1>Obrigado, " . htmlspecialchars($nome) . ", pela sua preferência!</h1>";
 echo "<p>Serviço: <strong>" . htmlspecialchars($servico) . "</strong></p>";
 echo "<p>Data: <strong>" . htmlspecialchars($dia) . "</strong> às <strong>" . htmlspecialchars($hora) . "</strong></p>";
-echo "<p>Duração: <strong>" . htmlspecialchars($duracao) . " hora(s)</strong></p>";
+echo "<p>Duração: <strong>" . htmlspecialchars($duracao) . " cessão(ões)</strong></p>";
 echo "<p>Total: R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
 echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
 

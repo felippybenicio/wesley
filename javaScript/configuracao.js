@@ -71,6 +71,7 @@ let anoAtual = agora.getFullYear();
     for (let i = 1; i <= qtd; i++) {
         const s = dadosUsar[i - 1] || {};
         const idServico = s.id || "";
+        const idSecundario = s.idSecundario || "";
         const tipo = s.tipo_servico || "";
         const valor = s.valor || "";
         const qtFunc = parseInt(s.quantidade_de_funcionarios || 1);
@@ -79,12 +80,13 @@ let anoAtual = agora.getFullYear();
         const intervalo = formatarHora(s.intervalo_entre_servico || "");
        
         
-        const bloco = document.createElement("div");
+        const bloco = document.createElement("section");
         bloco.innerHTML = `
             <h3>Serviço ${i}</h3>
-           
             <input type="hidden" name="id${i}" value="${idServico}">
+            <input type="hidden" name="id_secundario${i}" value="${idSecundario}">
             
+            <div>
                 <label for="tipo${i}">Serviço:</label>
                 <input type="text" name="tipo${i}" id="tipo${i}" value="${tipo}">
             </div><br>
@@ -111,24 +113,6 @@ let anoAtual = agora.getFullYear();
 
             <div id="funcionarios${i}"></div>
         `;
-
-
-        // const botaoDeletar = document.createElement("button");
-        // botaoDeletar.type = "button";
-        // botaoDeletar.textContent = "Deletar serviço";
-        // botaoDeletar.style.marginTop = "10px";
-        // botaoDeletar.addEventListener("click", () => {
-        //     if (idServico) {
-        //         const inputDel = document.createElement("input");
-        //         inputDel.type = "hidden";
-        //         inputDel.name = "deletar[]";
-        //         inputDel.value = idServico;
-        //         document.querySelector("form").appendChild(inputDel);
-        //     }
-        //     bloco.remove(); // remove o bloco visualmente
-        //         });
- 
-        //     bloco.appendChild(botaoDeletar);
 
         const funcContainer = bloco.querySelector(`#funcionarios${i}`);
 

@@ -6,10 +6,13 @@ include '../conexao.php';
 $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
 $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 
+
+
 $servicosPost = [];
 
 for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $servicoId = $_POST["id$i"] ?? null;
+    $idSecundario = $_POST["id_secundario$i"] ?? $i;
     $tipo = $_POST["tipo$i"] ?? '';
     $valor = $_POST["valor$i"] ?? '';
     $qtFuncionario = $_POST["qtFuncionario$i"] ?? 1;
@@ -29,6 +32,7 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
     $servicosPost[$i - 1] = [ 
         'id' => $servicoId,
+        'id_secundario' => $idSecundario,
         'tipo' => $tipo,
         'valor' => $valor,
         'qtFuncionario' => (int)$qtFuncionario,
@@ -38,12 +42,14 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     ];
 
 
+
 }
     $mesesIndisponiveis = $_POST['mesIndisponivel'] ?? [];
     $diasSemanaIndisponiveis = $_POST['semanaIndisponivel'] ?? [];
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
 
     $servicoId = [];
+    $idSecundario = [];
     $tipos = [];
     $valores = [];
     $qtFuncionarios = [];
@@ -87,6 +93,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
+$stmt = $conn->prepare("INSERT INTO quantidade_servico (id, quantidade_de_servico) VALUES (1, ?) 
+                        ON DUPLICATE KEY UPDATE quantidade_de_servico = VALUES(quantidade_de_servico)");
+
+if (!$stmt) {
+    die("Erro ao preparar: " . $conn->error);
+}
+
+$stmt->bind_param("i", $quantidadeServicos);
+$stmt->execute();
+$stmt->close();
 
     // Limpa as tabelas relacionadas a serviços
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
@@ -94,6 +110,7 @@ $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 
 for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $id = $_POST["id$i"] ?? null;  // pode ser null
+    $idSecundario = $i;
     $tipo = $_POST["tipo$i"] ?? '';
     $valor = $_POST["valor$i"] ?? 0;
     $qtFuncionarios = (int)($_POST["qtFuncionario$i"] ?? 1);
@@ -102,8 +119,8 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
     if (!empty($id) && is_numeric($id)) {
         // Faz UPDATE pois id já existe
-        $stmt = $conn->prepare("UPDATE servico SET tipo_servico=?, valor=?, quantidade_de_funcionarios=?, duracao_servico=?, intervalo_entre_servico=? WHERE id=?");
-        $stmt->bind_param("sdissi", $tipo, $valor, $qtFuncionarios, $duracao, $intervalo, $id);
+        $stmt = $conn->prepare("UPDATE servico SET id_secundario=?, tipo_servico=?, valor=?, quantidade_de_funcionarios=?, duracao_servico=?, intervalo_entre_servico=? WHERE id=?");
+        $stmt->bind_param("isdissi", $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo, $id);
         $stmt->execute();
         $stmt->close();
 
@@ -115,9 +132,11 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
         $servicoId = $id; // para inserir os funcionários abaixo
     } else {
+
+
         // Insere novo serviço
-        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sdiss", $tipo, $valor, $qtFuncionarios, $duracao, $intervalo);
+        $stmt = $conn->prepare("INSERT INTO servico (id_secundario, tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isdiss", $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo);
         $stmt->execute();
         $servicoId = $stmt->insert_id; // pega o id gerado no insert
         $stmt->close();
@@ -136,45 +155,26 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     }
 
 
-
-
-// if (isset($_POST['deletar']) && is_array($_POST['deletar'])) {
-//     foreach ($_POST['deletar'] as $idDeletar) {
-//         $id = intval($idDeletar); // segurança
-//         $sql = "DELETE FROM servicos WHERE id = ?";
-//         $stmt = $conn->prepare($sql);
-//         $stmt->execute([$id]);
-//     }
-// }
-
 }
+//PARA DELETAR SERVIÇO  
 
-
-// if (isset($_POST['deletar']) && is_array($_POST['deletar'])) {
-//     foreach ($_POST['deletar'] as $idDel) {
-//         $id = intval($idDel);
-
-//         // Deleta funcionários ligados ao serviço
-//         $stmt1 = $conn->prepare("DELETE FROM funcionario WHERE servico_id = ?");
-//         $stmt1->bind_param("i", $id);
-//         $stmt1->execute();
-//         $stmt1->close();
-
-//         // Deleta o serviço
-//         $stmt2 = $conn->prepare("DELETE FROM servico WHERE id = ?");
-//         $stmt2->bind_param("i", $id);
-//         $stmt2->execute();
-//         $stmt2->close();
-//     }
+// if ($conn->connect_error) {
+//     die("Erro na conexão: " . $conn->connect_error);
 // }
 
+// $stmt = $conn->prepare("DELETE FROM servico WHERE id = ?");
+// if (!$stmt) {
+//     die("Erro ao preparar: " . $conn->error);
+// }
 
+// $stmt->bind_param("i", $id);
 
+// if (!$stmt->execute()) {
+//     die("Erro ao executar: " . $stmt->error);
+// }
 
+// echo "Serviço deletado com sucesso!";
 
-
-    
-    
 
     // Salva meses e dias da semana indisponíveis
     $conn->query("DELETE FROM mes_indisponivel");

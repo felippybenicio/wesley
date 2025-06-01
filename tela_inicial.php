@@ -1,19 +1,30 @@
 <?php
     include 'php/conexao.php';
 
-    $config = $conn->query("SELECT * FROM servico")->fetch_assoc();
+    $result = $conn->query("SELECT * FROM quantidade_servico WHERE id = 1");
+        if ($result) {
+            $row = $result->fetch_assoc();
 
+        } else {
+            echo "Erro na consulta: " . $conn->error;
+        }
+    $qtservico = $row['quantidade_de_servico'];
 
+    $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
+
+$i = 1;
+foreach ($configs as $config) {
+    // Pega os valores da linha atual
+    $id = $config['id'];
+    $idSecundario = $config['id_secundario'];
     $servico = $config['tipo_servico'];
     $valor = $config['valor'];
     $qtFuncionarios = $config['quantidade_de_funcionarios'];
     $duracao = $config['duracao_servico'];
     $intervalo = $config['intervalo_entre_servico'];
-    extract($config);
 
-    echo "$servico"
-    
-
+    $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
+}
 ?>
 
 <!DOCTYPE html>
@@ -63,18 +74,32 @@
                 <div>
                     <label for="servico">qual tipo de serviço voce gostaria</label>
                     <select name="servico" id="servico">
-                        <option value="opção 1"><?= $servico ?></option>
-                        <option value="opção 2"><?= $servico ?></option>
-                        <option value="opção 3"><?= $servico ?></option>
-                        <option value="opção 4"><?= $servico ?></option>
+
+
+                        <?php
+                         
+                            $i = 1;
+                            foreach ($configs as $config) {
+                                $tipo = $config['tipo_servico'];
+                                $valor = $config['valor'];
+                                echo "<option value='{$servico}'>{$servico}</option>";
+                                $i++;
+                            }
+                        ?>
+
+
+                       
                     </select>
                 </div>
                 <div>
                     <label for="duracao">quantas cessão que deseja: </label>
                     <select name="duracao" id="duracao">
-                        <option value="1">1 Hora</option>
-                        <option value="2">2 Hora</option>
-                        <option value="3">3 Hora</option>
+
+                        <?php
+                            for ($i = 1; $i <= 3; $i++) {
+                                echo "<option value='cessao $i'>$i cessão</option>";
+                            }
+                        ?>
                     </select>
                 </div>
                 <div>
@@ -185,6 +210,7 @@
             </section>
         </form>
     </main>
+
 
     <script src="javaScript/script.js"></script>
     
