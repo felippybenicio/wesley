@@ -32,9 +32,6 @@ $hora       = $_POST["hora"] ?? '';
 
 
 
-
-$valorAtual = 0;
-
 $valorAtual = 0;
 foreach ($configs as $config) {
     $servicoConfig = $config['tipo_servico'];
@@ -139,6 +136,21 @@ $preference->external_reference = $pagamento_id;
 // $pagamento->close();
 // $conn->close();
 
+$i = 1;
+foreach ($configs as $config) {
+    // Pega os valores da linha atual
+    $id = $config['id'];
+    $idSecundario = $config['id_secundario'];
+    $servico = $config['tipo_servico'];
+    $valor = $config['valor'];
+    $qtFuncionarios = $config['quantidade_de_funcionarios'];
+    $duracao = $config['duracao_servico'];
+    $intervalo = $config['intervalo_entre_servico'];
+
+    $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
+}
+
+
 
 echo "<h1>Obrigado, " . htmlspecialchars($nome) . ", pela sua preferência!</h1>";
 echo "<p>Serviço: <strong>" . htmlspecialchars($servico) . "</strong></p>";
@@ -148,7 +160,5 @@ echo "<p>Total: R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
 echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
 
 ?>
-
-</script>
 </body>
 </html>

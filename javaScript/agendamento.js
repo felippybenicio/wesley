@@ -51,27 +51,77 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(e => console.error('Erro no marcarDiasCheios:', e));
     }
 
-    function desativarDomingos() {
-    console.log('desativarDomingos chamado');
-        for (let i = 1; i <= 31; i++) {
-            const diaTd = document.getElementById(`${i}`);
-            if (!diaTd) {
-                console.log(`Elemento com id ${i} não encontrado`);
-                continue;
-            }
-            const data = new Date(anoAtual, mesAtual - 1, i);
-            if (data.getMonth() !== mesAtual - 1) {
-                console.log(`${i} não pertence ao mês atual`);
-                continue;
-            }
-            if (data.getDay() === 0) {
-                console.log(`Desativando domingo: dia ${i}`);
-                diaTd.style.color = 'orange';
-                diaTd.style.pointerEvents = 'none';
-                diaTd.title = 'Domingo - indisponível';
-            }
-        }
+
+function aplicarConfiguracoesMes() {
+    const mesSelect = document.getElementById('mesSelect');
+    if (!mesSelect) return; 
+
+    // Primeiro, habilita tudo (reset)
+    for (let i = 0; i < mesSelect.options.length; i++) {
+        mesSelect.options[i].disabled = false;
     }
+
+    // Carrega os meses desabilitados do localStorage
+    const mesesDesabilitadosJSON = localStorage.getItem('mesesDesabilitados');
+    if (mesesDesabilitadosJSON) {
+        const mesesDesabilitados = JSON.parse(mesesDesabilitadosJSON); // Converte de volta para array
+
+        mesesDesabilitados.forEach(valor => {
+            for (let i = 0; i < mesSelect.options.length; i++) {
+                if (mesSelect.options[i].value === valor) {
+                    mesSelect.options[i].disabled = true;
+                }
+            }
+        });
+    }
+}
+
+
+
+
+function aplicarConfiguracoesSemanas() {
+    const todasCelulas = document.querySelectorAll('td.data');
+
+    // Carrega os dias da semana desabilitados do localStorage
+    const diasSemanaDesabilitadosJSON = localStorage.getItem('diasSemanaDesabilitados');
+    if (diasSemanaDesabilitadosJSON) {
+        const diasMarcados = JSON.parse(diasSemanaDesabilitadosJSON);
+
+        todasCelulas.forEach(td => {
+            const dia = parseInt(td.textContent);
+            if (isNaN(dia)) return;
+
+            const diaSemana = new Date(anoAtual, mesAtual - 1, dia).getDay();
+
+            if (diasMarcados.includes(diaSemana)) {
+                td.style.color = "orange";
+                td.style.pointerEvents = "none";
+                td.style.opacity = "0.7";
+            } else {
+                // Se não estiver marcado, restaura o estilo
+                td.style.color = "";
+                td.style.pointerEvents = "auto";
+                td.style.opacity = "1";
+            }
+        });
+    } else {
+        // Se não houver dados salvos, certifique-se de que todos os dias estejam habilitados
+        todasCelulas.forEach(td => {
+            td.style.color = "";
+            td.style.pointerEvents = "auto";
+            td.style.opacity = "1";
+        });
+    }
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dataAtual = new Date();
+    mesAtual = dataAtual.getMonth() + 1; // Mês atual (1-12)
+    anoAtual = dataAtual.getFullYear(); // Ano atual
+
+    criarTabelaCalendario(mesAtual, anoAtual);
+});
 
 
 
@@ -123,24 +173,25 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
 
-    // Atualiza os meses disponíveis no select: desativa meses anteriores
-for (let i = 0; i < mesSelect.options.length; i++) {
-    if (parseInt(mesSelect.options[i].value) < mesAtual) {
-        mesSelect.options[i].disabled = true;
+    //Atualiza os meses disponíveis no select: desativa meses anteriores
+    for (let i = 0; i < mesSelect.options.length; i++) {
+        if (parseInt(mesSelect.options[i].value) < mesAtual) {
+            mesSelect.options[i].disabled = true;
+        }
     }
-}
-mesSelect.value = mesAtual; // Define o mês atual como selecionado
+    mesSelect.value = mesAtual; // Define o mês atual como selecionado
 
-// Atualiza calendário ao trocar o mês
-mesSelect.addEventListener('change', function () {
-    mesAtual = parseInt(this.value);
-    mes.textContent = nomesDosMeses[mesAtual - 1]; // Atualiza o nome do mês
+    //Atualiza calendário ao trocar o mês
+    mesSelect.addEventListener('change', function () {
+        mesAtual = parseInt(this.value);
+        mes.textContent = nomesDosMeses[mesAtual - 1]; // Atualiza o nome do mês
 
-    criarTabelaCalendario(mesAtual, anoAtual);
-    marcarDiasCheios();
-    dataDoAgendamento();
-    desativarDomingos();
-});
+        criarTabelaCalendario(mesAtual, anoAtual);
+        marcarDiasCheios();
+        dataDoAgendamento();
+        aplicarConfiguracoesSemanas()
+        aplicarConfiguracoesMes()
+    });
 
 
     function criarTabelaCalendario(mes, ano) {
@@ -191,9 +242,10 @@ mesSelect.addEventListener('change', function () {
     criarTabelaCalendario(mesAtual, anoAtual);
     marcarDiasCheios();
     dataDoAgendamento();
-    desativarDomingos();
+    aplicarConfiguracoesSemanas()
+    aplicarConfiguracoesMes()
 
-    // Adiciona essa parte no final do seu DOMContentLoaded
+    //Adiciona essa parte no final do seu DOMContentLoaded
     for (let i = 0; i < mesSelect.options.length; i++) {
         if (parseInt(mesSelect.options[i].value) < mesAtual) {
             mesSelect.options[i].disabled = true;
@@ -207,11 +259,9 @@ mesSelect.addEventListener('change', function () {
         criarTabelaCalendario(mesAtual, anoAtual);
         marcarDiasCheios();
         dataDoAgendamento();
-        desativarDomingos();
-    });
-
-
-    
+        aplicarConfiguracoesSemanas()
+        aplicarConfiguracoesMes()    
+     });
 });
 
 

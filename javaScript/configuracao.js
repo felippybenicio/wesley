@@ -1,6 +1,6 @@
 const dias = document.querySelectorAll("td.data");
 const ul = document.querySelector("ul");
-const mesSelect = document.getElementById('mesSelect');
+const mesSelect = document.getElementById('mesSelect'); 
 const anoSelect = document.getElementById('anoSelect');
 let agora = new Date();
 let mesAtual = agora.getMonth() + 1;
@@ -313,10 +313,12 @@ document.addEventListener("DOMContentLoaded", function () {
             mesSelect.options[i].disabled = false;
         }
 
+        const mesesDesabilitados = []; 
 
         checkboxes.forEach(cb => {
             if (cb.checked) {
                 const valor = cb.value;
+                mesesDesabilitados.push(valor); 
                 for (let i = 0; i < mesSelect.options.length; i++) {
                     if (mesSelect.options[i].value === valor) {
                         mesSelect.options[i].disabled = true;
@@ -324,7 +326,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         });
+        localStorage.setItem('mesesDesabilitados', JSON.stringify(mesesDesabilitados));
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        mesDesabilitado(); // Aplica ao carregar a página de configuração
+
+        const checkboxesMes = document.querySelectorAll('.mes-checkbox');
+        checkboxesMes.forEach(checkbox => {
+            checkbox.addEventListener('change', mesDesabilitado); // Chama a função quando o checkbox muda
+        });
+    });
+
+
 
         function semanasDesabilitado() {
         const checkboxes = document.querySelectorAll('.sem-checkbox:checked');
@@ -349,7 +363,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 td.style.opacity = "1";
             }
         });
+
+        localStorage.setItem('diasSemanaDesabilitados', JSON.stringify(diasMarcados));
+
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        semanasDesabilitado(); // Aplica ao carregar a página de configuração
+
+        const checkboxesSemana = document.querySelectorAll('.sem-checkbox');
+        checkboxesSemana.forEach(checkbox => {
+            checkbox.addEventListener('change', semanasDesabilitado);
+        });
+    });
+
+
 
 
     function diasDeNaoFucionamento() {
@@ -527,6 +555,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         });
     });
+
+    
 
     // Adicionar nova linha com data específica
     document.getElementById('addData').addEventListener('click', function () {

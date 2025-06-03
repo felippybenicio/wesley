@@ -77,19 +77,17 @@ foreach ($configs as $config) {
 
 
                         <?php
-                         
                             $i = 1;
                             foreach ($configs as $config) {
-                                $tipo = $config['tipo_servico'];
+                                $servico = $config['tipo_servico'];
                                 $valor = $config['valor'];
-                                echo "<option value='{$servico}'>{$servico}</option>";
+                                echo "<option value='{$servico}'>{$servico}   -  <p name='{$valor}'>R$$valor</p></option>";
+
                                 $i++;
                             }
                         ?>
-
-
-                       
                     </select>
+                   
                 </div>
                 <div>
                     <label for="duracao">quantas cessão que deseja: </label>
@@ -210,9 +208,9 @@ foreach ($configs as $config) {
             </section>
         </form>
     </main>
-
-
-    <script src="javaScript/script.js"></script>
+    <script src="/wesley/javaScript/agendamento.js"></script>
     
+    
+
 </body>
 </html>

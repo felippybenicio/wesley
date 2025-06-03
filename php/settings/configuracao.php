@@ -74,11 +74,6 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
         }
     }
 
-    
-    
-
-
-
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($_POST['removerData'])) {
@@ -224,26 +219,26 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     }
 
 
-
-       
-    
-
     // Salva os horários
     $conn->query("DELETE FROM horario_config");
 
+    
+
     if (!empty($_POST['tipoDia']) && is_array($_POST['tipoDia'])) {
         foreach ($_POST['tipoDia'] as $i => $tipoDia) {
+            $id = $_POST['id'][$i] ?? '';
             $inicio = $_POST['inicio'][$i] ?? '';
             $fim = $_POST['fim'][$i] ?? '';
-
+            
+            
             if (isset($tipoDia) && $inicio !== '' && $fim !== '') {
                 $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
                 $stmt->bind_param("sss", $tipoDia, $inicio, $fim);
                 $stmt->execute();
                 $stmt->close();
-            }
+            } 
         }
-    }
+    }   
 
         // Tudo certo, agora pode redirecionar
         header("Location: " . $_SERVER['PHP_SELF']);
@@ -252,17 +247,17 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
 
     $dadosSalvos = []; // Defina como array vazio se nada for buscado
-$res = $conn->query("SELECT * FROM servico");
-while ($row = $res->fetch_assoc()) {
-    // Preencha com os dados esperados no JS
-    $id = $row['id'];
-    $row['funcionarios'] = [];
-    $resFunc = $conn->query("SELECT nome FROM funcionario WHERE servico_id = $id");
-    while ($func = $resFunc->fetch_assoc()) {
-        $row['funcionarios'][] = $func['nome'];
+    $res = $conn->query("SELECT * FROM servico");
+    while ($row = $res->fetch_assoc()) {
+        // Preencha com os dados esperados no JS
+        $id = $row['id'];
+        $row['funcionarios'] = [];
+        $resFunc = $conn->query("SELECT nome FROM funcionario WHERE servico_id = $id");
+        while ($func = $resFunc->fetch_assoc()) {
+            $row['funcionarios'][] = $func['nome'];
+        }
+        $dadosSalvos[] = $row;
     }
-    $dadosSalvos[] = $row;
-}
 
 
 
@@ -391,6 +386,7 @@ if ($res2) {
             <input type="checkbox" name="mesIndisponivel[]" class="mes-checkbox" value="12"
             <?php if (in_array(12, $mesesIndisponiveis)) echo 'checked'; ?>> Dezembro
         </label>
+
 
 
 
@@ -720,6 +716,7 @@ if (!$stmt->execute()) {
 
 <script src="/wesley/javaScript/configuracao.js"></script>
 
+
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const qtdInput = document.getElementById("quantidadeServicos");
@@ -735,8 +732,5 @@ if (!$stmt->execute()) {
         });
     });
 </script>
-
-
-
 </body>
 </html>
