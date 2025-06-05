@@ -1,5 +1,8 @@
-document.addEventListener("DOMContentLoaded", function () {
 
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
 
     const mesSelect = document.getElementById('mesSelect');
     const mes = document.querySelector('.mes');
@@ -115,14 +118,13 @@ function aplicarConfiguracoesSemanas() {
 }
 
 
-document.addEventListener('DOMContentLoaded', () => {
-    const dataAtual = new Date();
-    mesAtual = dataAtual.getMonth() + 1; // Mês atual (1-12)
-    anoAtual = dataAtual.getFullYear(); // Ano atual
+    document.addEventListener('DOMContentLoaded', () => {
+        const dataAtual = new Date();
+        mesAtual = dataAtual.getMonth() + 1; // Mês atual (1-12)
+        anoAtual = dataAtual.getFullYear(); // Ano atual
 
-    criarTabelaCalendario(mesAtual, anoAtual);
-});
-
+        criarTabelaCalendario(mesAtual, anoAtual);
+    });
 
 
 
@@ -155,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch(`php/dias_ocupados.php?data=${dataSelecionada}`)
             .then(response => response.json())
             .then(horasOcupadas => {
-                for (let i = 1; i <= totalHoras; i++) {
+                for (let i = 2; i <= totalHoras; i++) {
                     const horaElemento = document.getElementById(`hora${i}`);
                     if (!horaElemento) continue;
 
@@ -266,6 +268,212 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+// HORAS DISPONIVEIS
+    const selectServico = document.getElementById('servico');
+const selectSessao = document.getElementById('duracao');
+const dataSelecionadaInput = document.getElementById('dataSelecionada');
+const mesSelect = document.getElementById('mesSelect');
+const diasDisponiveisTableBody = document.querySelector('#dataDisponiveis tbody');
+const mesStrongElement = document.querySelector('.mes');
+const tabelaHorariosBody = document.querySelector('#horarios tbody');
+const horaInput = document.getElementById('hora');
+const tempoTotalInfo = document.getElementById('tempoTotal');
+
+function getMonthName(monthNum) {
+    const monthNames = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    ];
+    return monthNames[monthNum - 1] || "Mês Inválido";
+}
+
+function gerarDiasDoMes(year, month) {
+    diasDisponiveisTableBody.innerHTML = "";
+    const today = new Date();
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0).getDate();
+
+    let dayOfWeek = firstDay.getDay();
+
+    let row = document.createElement('tr');
+    for (let i = 0; i < dayOfWeek; i++) {
+        row.innerHTML += '<td></td>';
+    }
+
+    for (let day = 1 ; day <= lastDay; day++) {
+        const fullDate = new Date(year, month - 1, day);
+        const isPastDay = fullDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        if (dayOfWeek === 0 && day > 1) {
+            diasDisponiveisTableBody.appendChild(row);
+            row = document.createElement('tr');
+        }
+
+        const cell = document.createElement('td');
+        cell.id = day;
+        cell.classList.add('data');
+        cell.textContent = day;
+
+        if (isPastDay) {
+            cell.classList.add('unavailable');
+        } else {
+            cell.addEventListener('click', () => {
+                document.querySelectorAll('.data.selected').forEach(td => td.classList.remove('selected'));
+                cell.classList.add('selected');
+
+                const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                dataSelecionadaInput.value = formattedDate;
+            });
+        }
+        row.appendChild(cell);
+        dayOfWeek = (dayOfWeek + 1) % 7;
+    }
+
+    while (dayOfWeek !== 0) {
+        row.innerHTML += '<td></td>';
+        dayOfWeek = (dayOfWeek + 1) % 7;
+    }
+    diasDisponiveisTableBody.appendChild(row);
+
+    mesStrongElement.textContent = getMonthName(month);
+}
+
+function gerarHorarios() {
+    const selectedServiceOption = selectServico.options[selectServico.selectedIndex];
+
+    if (!selectedServiceOption || !selectedServiceOption.dataset.duracao || !selectedServiceOption.dataset.intervalo) {
+        tabelaHorariosBody.innerHTML = '<tr><td colspan="1">Selecione um serviço válido para ver os horários.</td></tr>';
+        tempoTotalInfo.textContent = "Tempo entre serviços: -- minutos";
+        return;
+    }
+
+    const duracaoServicoBase = parseInt(selectedServiceOption.dataset.duracao) || 0;
+    const intervaloEntreServicos = parseInt(selectedServiceOption.dataset.intervalo) || 0;
+    
+    const numSessoes = parseInt(selectSessao.value) || 1; 
+
+    const duracaoTotalServico = duracaoServicoBase * numSessoes;
+
+    const tempoTotalPorSlot = duracaoTotalServico + intervaloEntreServicos;
+
+    tempoTotalInfo.textContent = `Tempo entre serviços: ${tempoTotalPorSlot} minutos`;
+
+    tabelaHorariosBody.innerHTML = "";
+
+    let [expedienteStartH, expedienteStartM] = globalHoraInicio.split(":").map(Number); 
+    const [expedienteEndH, expedienteEndM] = globalHoraTermino.split(":").map(Number);
+
+    let currentSlotStart = new Date(0, 0, 0, expedienteStartH, expedienteStartM, 0, 0);
+    const expedienteEnd = new Date(0, 0, 0, expedienteEndH, expedienteEndM, 0, 0);
+
+    let slotCounter = 1;
+    let hasGeneratedHours = false;
+
+    while (currentSlotStart.getTime() < expedienteEnd.getTime()) {
+        const currentServiceEnd = new Date(currentSlotStart.getTime());
+        currentServiceEnd.setMinutes(currentServiceEnd.getMinutes() + duracaoTotalServico);
+
+        if (currentServiceEnd.getTime() > expedienteEnd.getTime()) {
+            break;
+        }
+
+        const horaFormatada = currentSlotStart.toTimeString().slice(0, 5);
+        const newRow = document.createElement('tr');
+        const newCell = document.createElement('td');
+        newCell.id = `hora${slotCounter}`;
+        newCell.textContent = horaFormatada;
+        newCell.classList.add('hora-disponivel');
+        newCell.addEventListener('click', () => {
+            document.querySelectorAll('.hora-disponivel.selected').forEach(td => td.classList.remove('selected'));
+            newCell.classList.add('selected');
+            horaInput.value = horaFormatada;
+        });
+
+        newRow.appendChild(newCell);
+        tabelaHorariosBody.appendChild(newRow);
+        hasGeneratedHours = true;
+
+        currentSlotStart.setMinutes(currentSlotStart.getMinutes() + tempoTotalPorSlot);
+        slotCounter++;
+    }
+
+    if (!hasGeneratedHours) {
+        tabelaHorariosBody.innerHTML = '<tr><td colspan="1">Nenhum horário disponível para este serviço no expediente.</td></tr>';
+    }
+}
+
+function updateCalendar() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const selectedMonth = parseInt(mesSelect.value);
+
+    gerarDiasDoMes(currentYear, selectedMonth);
+}
+
+function initializeDate() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+
+    dataSelecionadaInput.value = `${year}-${month}-${day}`;
+    mesSelect.value = today.getMonth() + 1;
+    mesStrongElement.textContent = getMonthName(today.getMonth() + 1);
+
+    gerarDiasDoMes(year, today.getMonth() + 1);
+}
+
+window.addEventListener('load', () => {
+    initializeDate();
+    setTimeout(gerarHorarios, 100);
+});
+
+selectServico.addEventListener('change', gerarHorarios);
+selectSessao.addEventListener('change', gerarHorarios);
+mesSelect.addEventListener('change', updateCalendar); 
 
 
+    //MUDA HORA DE ACORDO COM O CALENDARIO
+    
+    // document.querySelectorAll('td.data').forEach(td => {
+    //     td.addEventListener('click', function () {
+    //         const diaClicado = parseInt(this.textContent); // Ex: 5
+    //         const dataSelecionada = new Date(anoAtual, mesAtual - 1, diaClicado);
+    //         const diaSemana = dataSelecionada.getDay(); // 0=Dom, ..., 6=Sáb
+
+    //         console.log('Dia da semana:', diaSemana);
+
+    //         // Pega horário direto da variável PHP convertida para JS
+    //         const horarioDoDia = horariosPorSemana[diaSemana];
+
+    //         if (horarioDoDia) {
+    //             preencherTabelaHorarios(horarioDoDia.inicio_servico, horarioDoDia.termino_servico);
+    //         } else {
+    //             alert("Sem horário configurado para esse dia da semana.");
+    //         }
+    //     });
+    // });
+
+    // function preencherTabelaHorarios(inicio, fim) {
+    //     const tbody = document.querySelector('#horarios tbody');
+    //     tbody.innerHTML = ''; // Limpa
+
+    //     let [h, m] = inicio.split(':').map(Number);
+    //     const [hf, mf] = fim.split(':').map(Number);
+
+    //     while (h < hf || (h === hf && m < mf)) {
+    //         const horaFormatada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    //         const tr = document.createElement('tr');
+    //         const td = document.createElement('td');
+    //         td.textContent = horaFormatada;
+    //         tr.appendChild(td);
+    //         tbody.appendChild(tr);
+
+    //         m += 30; // Incrementa 30 minutos (pode mudar)
+    //         if (m >= 60) {
+    //             m = 0;
+    //             h++;
+    //         }
+    //     }
+    // }
 

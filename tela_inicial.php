@@ -12,19 +12,30 @@
 
     $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
 
-$i = 1;
-foreach ($configs as $config) {
-    // Pega os valores da linha atual
-    $id = $config['id'];
-    $idSecundario = $config['id_secundario'];
-    $servico = $config['tipo_servico'];
-    $valor = $config['valor'];
-    $qtFuncionarios = $config['quantidade_de_funcionarios'];
-    $duracao = $config['duracao_servico'];
-    $intervalo = $config['intervalo_entre_servico'];
+    $i = 1;
+    foreach ($configs as $config) {
+        // Pega os valores da linha atual
+        $id = $config['id'];
+        $idSecundario = $config['id_secundario'];
+        $servico = $config['tipo_servico'];
+        $valor = $config['valor'];
+        $qtFuncionarios = $config['quantidade_de_funcionarios'];
+        $duracao = $config['duracao_servico'];
+        $intervalo = $config['intervalo_entre_servico'];
 
-    $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
-}
+        $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
+    }
+
+    $horarios = $conn->query("SELECT * FROM horario_config")->fetch_all(MYSQLI_ASSOC);
+    $i = 1;
+    
+
+    
+    
+    function timeToMinutes($timeStr) {
+        list($h, $m, $s) = explode(':', $timeStr);
+        return ($h * 60) + $m;
+    }
 ?>
 
 <!DOCTYPE html>
@@ -44,6 +55,7 @@ foreach ($configs as $config) {
         <form action="php/agendamento.php" method="post">
             <section id="pessoal">
                 <h2>Nos informe algumas informações pessoais</h2>
+               
                 <div>
                     <label for="nome">Nome: </label>
                     <input type="text" name="nome" id="nome">
@@ -74,20 +86,26 @@ foreach ($configs as $config) {
                 <div>
                     <label for="servico">qual tipo de serviço voce gostaria</label>
                     <select name="servico" id="servico">
-
-
                         <?php
                             $i = 1;
-                            foreach ($configs as $config) {
-                                $servico = $config['tipo_servico'];
-                                $valor = $config['valor'];
-                                echo "<option value='{$servico}'>{$servico}   -  <p name='{$valor}'>R$$valor</p></option>";
+                            if (isset($configs) && is_array($configs)) {
+                                foreach ($configs as $config) {
+                                    $id = $config['id'];
 
-                                $i++;
+                                    $servico_name = htmlspecialchars($config['tipo_servico']);
+                                    $valor_formatado = htmlspecialchars(number_format($config['valor'], 2, ',', '.'));
+                                    $duracao_minutos = timeToMinutes($config['duracao_servico']);
+                                    $intervalo_minutos = timeToMinutes($config['intervalo_entre_servico']);
+                                    echo "<option value='$id' data-duracao='{$duracao_minutos}' data-intervalo='{$intervalo_minutos}'>
+                                            {$servico_name} - R$$valor_formatado
+                                        </option>";
+                                    $i++;
+                                }
+                            } else {
+                                echo "<option value=''>Nenhum serviço disponível</option>";
                             }
                         ?>
                     </select>
-                   
                 </div>
                 <div>
                     <label for="duracao">quantas cessão que deseja: </label>
@@ -122,51 +140,8 @@ foreach ($configs as $config) {
                     <table id="dataDisponiveis">
                         <p>dias disponiveis neste mes de <strong class="mes">...</strong></p>
                         <tbody>
-                            <tr>
-                                <td id="1" class="data">1</td>
-                                <td id="2" class="data">2</td>
-                                <td id="3" class="data">3</td>
-                                <td id="4" class="data">4</td>
-                                <td id="5" class="data">5</td>
-                                <td id="6" class="data">6</td>
-                                <td id="7" class="data">7</td>
-                            </tr>
-                            <tr>
-                                <td id="8" class="data">8</td>
-                                <td id="9" class="data">9</td>
-                                <td id="10" class="data">10</td>
-                                <td id="11" class="data">11</td>
-                                <td id="12" class="data">12</td>
-                                <td id="13" class="data">13</td>
-                                <td id="14" class="data">14</td>
-                            </tr>
-                            <tr>
-                                <td id="15" class="data">15</td>
-                                <td id="16" class="data">16</td>
-                                <td id="17" class="data">17</td>
-                                <td id="18" class="data">18</td>
-                                <td id="19" class="data">19</td>
-                                <td id="20" class="data">20</td>
-                                <td id="21" class="data">21</td>
-                            </tr>
-                            <tr>
-                                <td id="22" class="data">22</td>
-                                <td id="23" class="data">23</td>
-                                <td id="24" class="data">24</td>
-                                <td id="25" class="data">25</td>
-                                <td id="26" class="data">26</td>
-                                <td id="27" class="data">27</td>
-                                <td id="28" class="data">28</td>
-                            </tr>
-                            <tr>
-                                <td id="29" class="data">29</td>
-                                <td id="30" class="data">30</td>
-                                <td id="31" class="data">31</td>
-                            </tr>
-
-                        </tbody>
+                            </tbody>
                     </table>
-                    
                 </div>
                 <div>
                     <label for="hora">Qual horario melhor para você? </label>
@@ -176,41 +151,41 @@ foreach ($configs as $config) {
                             <th>horas disponiveis</th>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td id="hora1">13:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora2">14:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora3">15:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora4">16:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora5">17:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora6">18:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora7">19:00</td>
-                            </tr>
-                            <tr>
-                                <td id="hora8">20:00</td>
-                            </tr>
-                        </tbody>
+                            </tbody>
                     </table>
+                    <p id="tempoTotal">Tempo entre serviços: -- minutos</p>
                 </div>
                 
                 <button type="submit">agendar</button>
             </section>
         </form>
     </main>
-    <script src="/wesley/javaScript/agendamento.js"></script>
-    
-    
+    <?php
+        foreach ($horarios as $horario) {
+            $diaSemana_ou_data = $horario['semana_ou_data'];
+            $HoraInicio = $horario['inicio_servico'];
+            $HoraTermino = $horario['termino_servico'];
+            
+            
+                if ($diaSemana_ou_data === "0") {
+                    $globalHoraInicio = $horario['inicio_servico'];
+                    $globalHoraTermino = $horario['termino_servico'];
+                    break; // já achou o que queria, pode parar
+                }
 
+            
+
+        }
+
+
+    ?>
+    
+    <script>
+        const globalHoraInicio = "<?= $globalHoraInicio ?>";
+        const globalHoraTermino = "<?= $globalHoraTermino ?>";
+        const horariosSalvos = <?php echo json_encode($horarios); ?>;
+
+    </script>
+    <script src="javaScript/tela_pricipal.js"></script>
 </body>
 </html>
