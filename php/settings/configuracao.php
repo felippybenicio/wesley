@@ -1,49 +1,15 @@
 <?php
-
-include '../conexao.php';
-
-
-$quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
-$quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
+    include '../login_empresa/get_id.php';
+    include '../conexao.php';
 
 
 
-$servicosPost = [];
+// echo "ID da empresa logada: " . $empresa_id;
+// exit;
+   
 
-for ($i = 1; $i <= $quantidadeServicos; $i++) {
-    $servicoId = $_POST["id$i"] ?? null;
-    $idSecundario = $_POST["id_secundario$i"] ?? $i;
-    $tipo = $_POST["tipo$i"] ?? '';
-    $valor = $_POST["valor$i"] ?? '';
-    $qtFuncionario = $_POST["qtFuncionario$i"] ?? 1;
-    $duracaoServico = $_POST["duracaoServico$i"] ?? '';
-    $intervaloServico = $_POST["intervaloServico$i"] ?? '';
-    $tipoDia = $_POST['tipoDia'] ?? [];
-    $inicio = $_POST['inicio'] ?? [];
-    $fim = $_POST['fim'] ?? [];
+    $servicosPost = [];
 
-    $funcionarios = [];
-    for ($j = 1; $j <= 5; $j++) {
-        $key = "funcionario{$i}_{$j}";
-        if (isset($_POST[$key])) {
-            $funcionarios[] = $_POST[$key];
-        }
-    }
-
-    $servicosPost[$i - 1] = [ 
-        'id' => $servicoId,
-        'id_secundario' => $idSecundario,
-        'tipo' => $tipo,
-        'valor' => $valor,
-        'qtFuncionario' => (int)$qtFuncionario,
-        'funcionarios' => $funcionarios,
-        'duracao' => $duracaoServico,    
-        'intervalo' => $intervaloServico   
-    ];
-
-
-
-}
     $mesesIndisponiveis = $_POST['mesIndisponivel'] ?? [];
     $diasSemanaIndisponiveis = $_POST['semanaIndisponivel'] ?? [];
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
@@ -59,11 +25,9 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
     $semana = [];
     $datasEspecificas = [];
-
     
-
-
-
+    $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
+    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
     for ($i = 1; $i <= $quantidadeServicos; $i++) {
         $tipos[$i] = $_POST["tipo$i"] ?? '';
         $valores[$i] = $_POST["valor$i"] ?? '';
@@ -79,29 +43,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($_POST['removerData'])) {
         $data = $_POST['removerData'];
 
-        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ?");
-        $stmt->bind_param("s", $data);
+        // $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ?");
+        // $stmt->bind_param("s", $data);
+        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ? AND empresa_id = ?");
+        $stmt->bind_param("si", $data, $empresa_id);
+
         $stmt->execute();
         $stmt->close();
 
-        header("Location: " . $_SERVER['PHP_SELF']); // Atualiza a página
+        header("Location: configuracao.php");
         exit;
     }
     
-$stmt = $conn->prepare("INSERT INTO quantidade_servico (id, quantidade_de_servico) VALUES (1, ?) 
-                        ON DUPLICATE KEY UPDATE quantidade_de_servico = VALUES(quantidade_de_servico)");
+// Verifica se já existe
+$stmt = $conn->prepare("SELECT COUNT(*) FROM quantidade_servico WHERE empresa_id = ?");
+$stmt->bind_param("i", $empresa_id);
+$stmt->execute();
+$stmt->bind_result($count);
+$stmt->fetch();
+$stmt->close();
 
-if (!$stmt) {
-    die("Erro ao preparar: " . $conn->error);
+if ($count > 0) {
+    // Atualiza
+    $stmt = $conn->prepare("UPDATE quantidade_servico SET quantidade_de_servico = ? WHERE empresa_id = ?");
+    $stmt->bind_param("ii", $quantidadeServicos, $empresa_id);
+} else {
+    // Insere novo
+    $stmt = $conn->prepare("INSERT INTO quantidade_servico (empresa_id, quantidade_de_servico) VALUES (?, ?)");
+    $stmt->bind_param("ii", $empresa_id, $quantidadeServicos);
 }
-
-$stmt->bind_param("i", $quantidadeServicos);
 $stmt->execute();
 $stmt->close();
 
+
     // Limpa as tabelas relacionadas a serviços
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
-$quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
+    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
 
 for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $id = $_POST["id$i"] ?? null;  // pode ser null
@@ -112,28 +89,45 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $duracao = $_POST["duracaoServico$i"] ?? '';
     $intervalo = $_POST["intervaloServico$i"] ?? '';
 
+    $servicoValido = false;
+
     if (!empty($id) && is_numeric($id)) {
-        // Faz UPDATE pois id já existe
-        $stmt = $conn->prepare("UPDATE servico SET id_secundario=?, tipo_servico=?, valor=?, quantidade_de_funcionarios=?, duracao_servico=?, intervalo_entre_servico=? WHERE id=?");
-        $stmt->bind_param("isdissi", $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo, $id);
+        // Verifica se o serviço pertence a esta empresa
+        $stmt = $conn->prepare("SELECT id FROM servico WHERE id = ? AND empresa_id = ?");
+        $stmt->bind_param("ii", $id, $empresa_id);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows > 0) {
+            $servicoValido = true;
+        } else {
+            $id = null;
+            $servicoValido = false; 
+        }
+
+        $stmt->close();
+    }
+
+    if ($servicoValido) {
+        // Faz UPDATE do serviço existente
+        $stmt = $conn->prepare("UPDATE servico SET id_secundario=?, tipo_servico=?, valor=?, quantidade_de_funcionarios=?, duracao_servico=?, intervalo_entre_servico=? WHERE id=? AND empresa_id=?");
+        $stmt->bind_param("isdissii", $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo, $id, $empresa_id);
         $stmt->execute();
         $stmt->close();
 
         // Apaga funcionários antigos daquele serviço
-        $stmtDel = $conn->prepare("DELETE FROM funcionario WHERE servico_id = ?");
-        $stmtDel->bind_param("i", $id);
+        $stmtDel = $conn->prepare("DELETE FROM funcionario WHERE servico_id = ? AND empresa_id = ?");
+        $stmtDel->bind_param("ii", $id, $empresa_id);
         $stmtDel->execute();
         $stmtDel->close();
 
         $servicoId = $id; // para inserir os funcionários abaixo
     } else {
-
-
         // Insere novo serviço
-        $stmt = $conn->prepare("INSERT INTO servico (id_secundario, tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isdiss", $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo);
+        $stmt = $conn->prepare("INSERT INTO servico (empresa_id, id_secundario, tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("iisdiss", $empresa_id, $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo);
         $stmt->execute();
-        $servicoId = $stmt->insert_id; // pega o id gerado no insert
+        $servicoId = $stmt->insert_id;
         $stmt->close();
     }
 
@@ -142,15 +136,14 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
         $key = "funcionario{$i}_{$j}";
         if (!empty($_POST[$key])) {
             $nome = $_POST[$key];
-            $stmtFunc = $conn->prepare("INSERT INTO funcionario (servico_id, nome) VALUES (?, ?)");
-            $stmtFunc->bind_param("is", $servicoId, $nome);
+            $stmtFunc = $conn->prepare("INSERT INTO funcionario (empresa_id, servico_id, nome) VALUES (?, ?, ?)");
+            $stmtFunc->bind_param("iis", $empresa_id, $servicoId, $nome);
             $stmtFunc->execute();
             $stmtFunc->close();
         }
     }
-
-
 }
+
 //PARA DELETAR SERVIÇO  
 
 // if ($conn->connect_error) {
@@ -172,44 +165,64 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
 
     // Salva meses e dias da semana indisponíveis
-    $conn->query("DELETE FROM mes_indisponivel");
-    $conn->query("DELETE FROM semana_indisponivel");
+    // $conn->query("DELETE FROM mes_indisponivel");
+    // $conn->query("DELETE FROM semana_indisponivel");
+
+    $stmt = $conn->prepare("DELETE FROM mes_indisponivel WHERE empresa_id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->close();
+
+    $stmt = $conn->prepare("DELETE FROM semana_indisponivel WHERE empresa_id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->close();
 
     if (!empty($_POST['mesIndisponivel'])) {
-        foreach ($_POST['mesIndisponivel'] as $mes) {
-            $conn->query("INSERT INTO mes_indisponivel (mes) VALUES (" . (int)$mes . ")");
-        }
+    $stmtMes = $conn->prepare("INSERT INTO mes_indisponivel (empresa_id, mes) VALUES (?, ?)");
+    foreach ($_POST['mesIndisponivel'] as $mes) {
+        $mes = (int)$mes;
+        $stmtMes->bind_param("ii", $empresa_id, $mes);
+        $stmtMes->execute();
     }
+    $stmtMes->close();
+}
 
-    if (!empty($_POST['semanaIndisponivel'])) {
-        foreach ($_POST['semanaIndisponivel'] as $dia) {
-            $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES (" . (int)$dia . ")");
-        }
+if (!empty($_POST['semanaIndisponivel'])) {
+    $stmtSemana = $conn->prepare("INSERT INTO semana_indisponivel (empresa_id, dia_semana) VALUES (?, ?)");
+    foreach ($_POST['semanaIndisponivel'] as $dia) {
+        $dia = (int)$dia;
+        $stmtSemana->bind_param("ii", $empresa_id, $dia);
+        $stmtSemana->execute();
     }
+    $stmtSemana->close();
+}
 
     // Salva dias específicos indisponíveis
     if (!empty($_POST['diasIndisponiveis'])) {
-        foreach ($_POST['diasIndisponiveis'] as $data) {
-            $check = $conn->prepare("SELECT COUNT(*) FROM dia_indisponivel WHERE data = ?");
-            $check->bind_param("s", $data);
-            $check->execute();
-            $check->bind_result($count);
-            $check->fetch();
-            $check->close();
+    foreach ($_POST['diasIndisponiveis'] as $data) {
+        $check = $conn->prepare("SELECT COUNT(*) FROM dia_indisponivel WHERE data = ? AND empresa_id = ?");
+        $check->bind_param("si", $data, $empresa_id);
 
-            if ($count == 0) {
-                $stmt = $conn->prepare("INSERT INTO dia_indisponivel (data) VALUES (?)");
-                $stmt->bind_param("s", $data);
-                $stmt->execute();
-                $stmt->close();
-            }
+        $check->execute();
+        $check->bind_result($count);
+        $check->fetch();
+        $check->close();
+
+        if ($count == 0) {
+            $stmt = $conn->prepare("INSERT INTO dia_indisponivel (empresa_id, data) VALUES (?, ?)");
+            $stmt->bind_param("is", $empresa_id, $data);
+            $stmt->execute();
+            $stmt->close();
         }
     }
+}
+
 
     $data = $_POST['dataParaRemover'] ?? null;
 
     if ($data) {
-        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ?");
+        $stmt = $conn->prepare("DELETE FROM dia_indisponivel WHERE data = ? AND empresa_id = ?");
         $stmt->bind_param("s", $data);
         $stmt->execute();
         $stmt->close();
@@ -220,9 +233,7 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
 
 
     // Salva os horários
-    $conn->query("DELETE FROM horario_config");
-
-    
+    $conn->query("DELETE FROM horario_config WHERE empresa_id = $empresa_id");
 
     if (!empty($_POST['tipoDia']) && is_array($_POST['tipoDia'])) {
         foreach ($_POST['tipoDia'] as $i => $tipoDia) {
@@ -232,8 +243,8 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
             
             
             if (isset($tipoDia) && $inicio !== '' && $fim !== '') {
-                $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
-                $stmt->bind_param("sss", $tipoDia, $inicio, $fim);
+                $stmt = $conn->prepare("INSERT INTO horario_config (empresa_id, semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?, ?)");
+                $stmt->bind_param("isss", $empresa_id, $tipoDia, $inicio, $fim);
                 $stmt->execute();
                 $stmt->close();
             } 
@@ -246,44 +257,43 @@ for ($i = 1; $i <= $quantidadeServicos; $i++) {
     }
 
 
+
     $dadosSalvos = []; // Defina como array vazio se nada for buscado
-    $res = $conn->query("SELECT * FROM servico");
+
+    $res = $conn->query("SELECT * FROM servico WHERE empresa_id = $empresa_id");
     while ($row = $res->fetch_assoc()) {
-        // Preencha com os dados esperados no JS
         $id = $row['id'];
         $row['funcionarios'] = [];
-        $resFunc = $conn->query("SELECT nome FROM funcionario WHERE servico_id = $id");
+
+        $resFunc = $conn->query("SELECT nome FROM funcionario WHERE servico_id = $id AND empresa_id = $empresa_id");
         while ($func = $resFunc->fetch_assoc()) {
             $row['funcionarios'][] = $func['nome'];
         }
+
         $dadosSalvos[] = $row;
     }
 
 
 
-
-
-
 // CARREGAR os dados após salvar
 $mesesIndisponiveis = [];
-$res1 = $conn->query("SELECT mes FROM mes_indisponivel");
+$res1 = $conn->query("SELECT mes FROM mes_indisponivel WHERE empresa_id = $empresa_id");
 if ($res1) {
     while ($linha = $res1->fetch_assoc()) {
         $mesesIndisponiveis[] = (int)$linha['mes'];
     }
 }
 
+
 $diasSemanaIndisponiveis = [];
-$res2 = $conn->query("SELECT dia_semana FROM semana_indisponivel");
+$res2 = $conn->query("SELECT dia_semana FROM semana_indisponivel WHERE empresa_id = $empresa_id");
 if ($res2) {
     while ($linha = $res2->fetch_assoc()) {
         $diasSemanaIndisponiveis[] = (int)$linha['dia_semana'];
     }
 }
 
-    
-
-    $sqlHoras = "SELECT * FROM horario_config";
+    $sqlHoras = "SELECT * FROM horario_config WHERE empresa_id = $empresa_id";
     $result = $conn->query($sqlHoras);
 
     if ($result && $result->num_rows > 0) {
@@ -292,14 +302,12 @@ if ($res2) {
             $inicio = $row['inicio_servico'];
             $fim = $row['termino_servico'];
 
-            // Se for número (0 a 6), é dia da semana
             if (is_numeric($chave)) {
                 $semana[(int)$chave] = [
                     'inicio' => $inicio,
                     'fim' => $fim
                 ];
             } else {
-                // senão, é data específica
                 $datasEspecificas[] = [
                     'data' => $chave,
                     'inicio' => $inicio,
@@ -321,7 +329,7 @@ if ($res2) {
 <body>
 
 
-
+    <a href="../agendamentos/tela_inicial_empresa.php">Voltar</a>
 
 
 
@@ -457,18 +465,26 @@ if ($res2) {
         <h3 id="naoFuncionamento"><!--titulo da lista--></h3>
 
 <ul>
-    <?php
-    // Buscar as datas
-    $result = $conn->query("SELECT data FROM dia_indisponivel ORDER BY data ASC");
+<?php
+// Pegue o ID da empresa logada (supondo que você armazene isso na sessão)
+$empresaId = $_SESSION['empresa_id']; // ajuste conforme sua lógica
 
-    while ($row = $result->fetch_assoc()) {
-        $data = $row['data'];
-        echo "<li>
-                <input type='date' value='$data' readonly>
-                <button type='submit' name='removerData' value='$data'>Remover</button>
-              </li>";
-    }
-    ?>
+// Use uma query preparada para segurança
+$stmt = $conn->prepare("SELECT data FROM dia_indisponivel WHERE empresa_id = ? ORDER BY data ASC");
+$stmt->bind_param("i", $empresaId);
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Exiba apenas as datas da empresa logada
+while ($row = $result->fetch_assoc()) {
+    $data = $row['data'];
+    echo "<li>
+            <input type='date' value='$data' readonly>
+            <button type='submit' name='removerData' value='$data'>Remover</button>
+          </li>";
+}
+?>
+
 
 
 </ul>
@@ -535,125 +551,23 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
-    $quantidadeServicos = intval($_POST['quantidadeServicos']);
+        // // Salvar meses indisponíveis
+        // $conn->query("DELETE FROM mes_indisponivel");
+        // if (isset($_POST['mesIndisponivel'])) {
+        //     foreach ($_POST['mesIndisponivel'] as $mes) {
+        //         $mes = (int)$mes;
+        //         $conn->query("INSERT INTO mes_indisponivel (mes) VALUES ($mes)");
+        //     }
+        // }
 
-    for ($i = 1; $i <= $quantidadeServicos; $i++) {
-        $tipo = $_POST["tipo$i"] ?? null;
-        $valor = isset($_POST["valor$i"]) ? floatval($_POST["valor$i"]) : null;
-        $qtFuncionario = isset($_POST["qtFuncionario$i"]) ? intval($_POST["qtFuncionario$i"]) : 0;
-        $duracaoServico = $_POST["duracaoServico$i"] ?? null;
-        $intervaloServico = $_POST["intervaloServico$i"] ?? null;
-
-
-        // Ignora se algum campo essencial estiver faltando
-        if (empty($tipo) || $valor === null) {
-            continue;
-        }
-
-        // Insere serviço
-        $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sdiss", $tipo, $valor, $qtFuncionario, $duracaoServico, $intervaloServico);
-        $stmt->execute();
-        $servico_id = $stmt->insert_id;
-        $stmt->close();
-
-        // Insere funcionários
-        for ($j = 1; $j <= $qtFuncionario; $j++) {
-            $nomeFuncionario = $_POST["funcionario{$i}_{$j}"] ?? '';
-            if (!empty($nomeFuncionario)) {
-                $stmt = $conn->prepare("INSERT INTO funcionario (servico_id, nome) VALUES (?, ?)");
-                $stmt->bind_param("is", $servico_id, $nomeFuncionario);
-                $stmt->execute();
-                $stmt->close();
-            }
-        }
-    }
-
-    // Horas
-    
-        $tipos = $_POST['tipoDia'] ?? [];
-        $inicios = $_POST['inicio'] ?? [];
-        $fins = $_POST['fim'] ?? [];
-
-        if (count($tipos) === count($inicios) && count($inicios) === count($fins)) {
-
-            // Apaga os registros antigos
-            $conn->query("DELETE FROM horario_config");
-
-            $stmt = $conn->prepare("INSERT INTO horario_config (semana_ou_data, inicio_servico, termino_servico) VALUES (?, ?, ?)");
-
-            foreach ($tipos as $i => $tipo) {
-                $horaInicio = $inicios[$i];
-                $horaFim = $fins[$i];
-
-                if ($horaInicio && $horaFim) {
-                    $stmt->bind_param("sss", $tipo, $horaInicio, $horaFim);
-                    $stmt->execute();
-                }
-            }
-
-            $stmt->close();
-        } 
-         
-        
-
-
-
-        //Limpar dados anteriores
-
-        $conn->query("DELETE FROM funcionario");
-        $conn->query("DELETE FROM servico");
-
-        $quantidadeServicos = intval($_POST['quantidadeServicos']);
-
-        for ($i = 1; $i <= $quantidadeServicos; $i++) {
-            $tipo = $_POST["tipo$i"] ?? '';
-            $valor = $_POST["valor$i"] ?? 0;
-            $duracao = $_POST["duracaoServico$i"] ?? '';
-            $intervalo = $_POST["intervaloServico$i"] ?? '';
-            $qtFuncionario = intval($_POST["qtFuncionario$i"] ?? 1);
-
-            // Inserir serviço
-            $stmt = $conn->prepare("INSERT INTO servico (tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sdssi", $tipo, $valor, $qtFuncionario, $duracao, $intervalo);
-            $stmt->execute();
-            $servicoId = $stmt->insert_id;
-
-            // Inserir funcionários do serviço
-            for ($j = 1; $j <= $qtFuncionario; $j++) {
-                $nomeFuncionario = $_POST["funcionario{$i}_{$j}"] ?? '';
-                if (!empty($nomeFuncionario)) {
-                    $stmtF = $conn->prepare("INSERT INTO funcionario(servico_id, nome) VALUES (?, ?)");
-                    $stmtF->bind_param("is", $servicoId, $nomeFuncionario);
-                    $stmtF->execute();
-                }
-            }
-        }
-if (!$stmt) {
-    die("Erro no prepare: " . $conn->error);
-}
-if (!$stmt->execute()) {
-    die("Erro ao executar: " . $stmt->error);
-}
-
-
-        // Salvar meses indisponíveis
-        $conn->query("DELETE FROM mes_indisponivel");
-        if (isset($_POST['mesIndisponivel'])) {
-            foreach ($_POST['mesIndisponivel'] as $mes) {
-                $mes = (int)$mes;
-                $conn->query("INSERT INTO mes_indisponivel (mes) VALUES ($mes)");
-            }
-        }
-
-        // Salvar dias da semana indisponíveis
-        $conn->query("DELETE FROM semana_indisponivel");
-        if (isset($_POST['semanaIndisponivel'])) {
-            foreach ($_POST['semanaIndisponivel'] as $dia) {
-                $dia = (int)$dia;
-                $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES ($dia)");
-            }
-        }
+        // // Salvar dias da semana indisponíveis
+        // $conn->query("DELETE FROM semana_indisponivel");
+        // if (isset($_POST['semanaIndisponivel'])) {
+        //     foreach ($_POST['semanaIndisponivel'] as $dia) {
+        //         $dia = (int)$dia;
+        //         $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES ($dia)");
+        //     }
+        // }
 
 
         $mes = [
@@ -671,41 +585,8 @@ if (!$stmt->execute()) {
         }
         while ($row = $result->fetch_assoc()) {
             $mesesIndisponiveis[] = $row['dia_semana']; // CORRIGIDO
-        }
-
-        // Consulta 2
-        // Busca os horários salvos do banco
-        $horarios = [];
-        $result = $conn->query("SELECT * FROM horario_config");
-
-        while ($row = $result->fetch_assoc()) {
-            $horarios[] = $row;
-        }
-
-
-
-        // Consulta 3
-
-        $result = $conn->query("SELECT data FROM dia_indisponivel LIMIT 1");
-
-        if (!$result) {
-            die("Erro na consulta: " . $conn->error); // Mostra o erro do MySQL
-        }
-
-        $horario = $result->fetch_assoc();
-
-
-
-
-        // Consulta 4
-        $result = $conn->query("SELECT * FROM horario_config LIMIT 1");
-        if (!$result) {
-            die("Erro na consulta: " . $conn->error);
-        }
-        $horario = $result->fetch_assoc();
-
-        
-}
+        }  
+    }
 
 ?>
 
@@ -732,5 +613,21 @@ if (!$stmt->execute()) {
         });
     });
 </script>
+<script>
+    // Salvar a posição do scroll antes de sair
+    window.addEventListener("beforeunload", function () {
+        localStorage.setItem("scrollPos", window.scrollY);
+    });
+</script>
+<script>
+    // Quando a página carregar, volta para a posição salva
+    window.addEventListener("load", function () {
+        const scrollPos = localStorage.getItem("scrollPos");
+        if (scrollPos !== null) {
+            window.scrollTo(0, parseInt(scrollPos));
+        }
+    });
+</script>
+
 </body>
 </html>

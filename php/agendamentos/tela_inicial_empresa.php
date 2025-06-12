@@ -1,41 +1,57 @@
 <?php
-    include 'php/conexao.php';
+include '../login_empresa/get_id.php';
+include '../conexao.php';
 
-    $result = $conn->query("SELECT * FROM quantidade_servico WHERE id = 1");
-        if ($result) {
-            $row = $result->fetch_assoc();
+if (!isset($_SESSION['empresa_id'])) {
+    // Se não estiver logado, redireciona para login
+    header("Location: ../../pages/login_empresa/tela_login.php");
+    exit();
+}
 
-        } else {
-            echo "Erro na consulta: " . $conn->error;
-        }
-    $qtservico = $row['quantidade_de_servico'];
+$empresa_id = $_SESSION['empresa_id'];
 
-    $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
 
-    $i = 1;
-    foreach ($configs as $config) {
-        // Pega os valores da linha atual
-        $id = $config['id'];
-        $idSecundario = $config['id_secundario'];
-        $servico = $config['tipo_servico'];
-        $valor = $config['valor'];
-        $qtFuncionarios = $config['quantidade_de_funcionarios'];
-        $duracao = $config['duracao_servico'];
-        $intervalo = $config['intervalo_entre_servico'];
+$stmt = $conn->prepare("SELECT * FROM servico WHERE empresa_id = ?");
+$stmt->bind_param("i", $empresa_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$configs = $result->fetch_all(MYSQLI_ASSOC);
 
-        $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
+// Exemplo para processar os serviços, corrigindo seu código:
+function tempoParaMinutos($tempo) {
+    if (strpos($tempo, ':') !== false) {
+        list($h, $m) = explode(':', $tempo);
+        return ((int)$h) * 60 + ((int)$m);
     }
+    return (int)$tempo;
+}
 
-    $horarios = $conn->query("SELECT * FROM horario_config")->fetch_all(MYSQLI_ASSOC);
-    $i = 1;
-    
+$tempoentrecessao = [];
+foreach ($configs as $config) {
+    $duracao = tempoParaMinutos($config['duracao_servico']);
+    $intervalo = tempoParaMinutos($config['intervalo_entre_servico']);
+    $idServico = $config['id']; // ou o campo correto
 
-    
-    
-    function timeToMinutes($timeStr) {
-        list($h, $m, $s) = explode(':', $timeStr);
-        return ($h * 60) + $m;
-    }
+    $tempoentrecessao[$idServico] = $duracao + $intervalo;
+}
+
+
+
+
+// Pega horários
+$stmt = $conn->prepare("SELECT * FROM horario_config WHERE empresa_id = ?");
+$stmt->bind_param("i", $empresa_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$horarios = $result->fetch_all(MYSQLI_ASSOC);
+
+
+// Função para converter hora em minutos — OK
+function timeToMinutes($timeStr) {
+    list($h, $m, $s) = explode(':', $timeStr);
+    return ($h * 60) + $m;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -48,11 +64,12 @@
 
 </head>
 <body>
+    <a href="../settings/configuracao.php">configuração</a>
     <h1>ola seja bem vindo</h1>
     <p>como podemos ajudar?</p>
 
     <main id="form">
-        <form action="php/agendamento.php" method="post">
+        <form action="agendamento.php" method="POST">
             <section id="pessoal">
                 <h2>Nos informe algumas informações pessoais</h2>
                
@@ -113,8 +130,11 @@
 
                         <?php
                             for ($i = 1; $i <= 3; $i++) {
-                                echo "<option value='cessao $i'>$i cessão</option>";
+                                $cessao = "$i";
+                                echo "<option value='$cessao'>$i cessão</option>";
                             }
+
+
                         ?>
                     </select>
                 </div>
@@ -145,13 +165,13 @@
                 </div>
                 <div>
                     <label for="hora">Qual horario melhor para você? </label>
-                    <input type="time" name="hora" id="hora" readonly placeholder="__:__">
+                    <input type="time" name="hora" id="hora" readonly>
                     <table id="horarios">
                         <thead>
                             <th>horas disponiveis</th>
                         </thead>
                         <tbody>
-                            </tbody>
+                        </tbody>
                     </table>
                     <p id="tempoTotal">Tempo entre serviços: -- minutos</p>
                 </div>
@@ -160,32 +180,22 @@
             </section>
         </form>
     </main>
-    <?php
-        foreach ($horarios as $horario) {
-            $diaSemana_ou_data = $horario['semana_ou_data'];
-            $HoraInicio = $horario['inicio_servico'];
-            $HoraTermino = $horario['termino_servico'];
-            
-            
-                if ($diaSemana_ou_data === "0") {
-                    $globalHoraInicio = $horario['inicio_servico'];
-                    $globalHoraTermino = $horario['termino_servico'];
-                    break; // já achou o que queria, pode parar
-                }
-
-            
-
-        }
-
-
-    ?>
+    
     
     <script>
         const globalHoraInicio = "<?= $globalHoraInicio ?>";
         const globalHoraTermino = "<?= $globalHoraTermino ?>";
         const horariosSalvos = <?php echo json_encode($horarios); ?>;
+        
+    </script>
+    <script>
+        const intervaloEntreHorarios = <?php echo json_encode($tempoentrecessao); ?>;
+        console.log("Intervalo:", intervaloEntreHorarios); // Deve aparecer [90], [60], etc.
 
     </script>
-    <script src="javaScript/tela_pricipal.js"></script>
+     <script>
+        const cessao = <?php echo json_encode($cessao); ?>
+    </script>
+    <script src="../../javaScript/tela_pricipal.js"></script>
 </body>
 </html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cadastro login</title>
+</head>
+<body>
+    <a href="tela_login.html">voltar</a>
+    <h1>faça seu cadastro</h1>
+
+    <form action="/../wesley/php/login_empresa/cadastro_inicial.php" method="POST">
+        
+        <div>
+            <label for="empresa">Nome da Sua Empresa</label>
+            <input type="text" name="empresa" id="empresa">
+        </div>
+        <div>
+            <label for="ramo">ramo da sua empresa</label>
+            <input type="text" name="ramo" id="ramo">
+        </div>
+        <div>
+            <label for="email">E-mail</label>
+            <input type="email" name="email" id="email">
+        </div>
+        <div>
+            <label for="senha">Senha</label>
+            <input type="password" name="senha" id="senha">
+        </div>
+        <input type="hidden" name="id" id="id">
+        <button type="submit">cadastrar</button>
+    </form>
+    <script src="../../javaScript/login_empresa.js"></script>
+</body>
+</html>

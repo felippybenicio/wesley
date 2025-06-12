@@ -203,24 +203,25 @@ let anoAtual = agora.getFullYear();
 
     return novaLista;
 }
-/////////////////////////
-criarCampos(dadosServicos);
+////////////////////////
+// criarCampos(dadosServicos);
 
-setTimeout(() => {
-    // Aqui, o DOM já teve tempo de renderizar os campos
-    const qtd = document.getElementById("quantidadeServicos").value;
-    for (let i = 1; i <= qtd; i++) {
-        const s = dadosServicos[i - 1] || {};
-        document.getElementById(`tipo_servico${i}`).value = s.tipo_servico || "";
-        // e os outros campos...
-    }
-}, 50); // 50ms já costuma resolver
-//////////////////////////////
+// setTimeout(() => {
+//     // Aqui, o DOM já teve tempo de renderizar os campos
+//     const qtd = document.getElementById("quantidadeServicos").value;
+//     for (let i = 1; i <= qtd; i++) {
+//         const s = dadosServicos[i - 1] || {};
+//         document.getElementById(`tipo_servico${i}`).value = s.tipo_servico || "";
+//         // e os outros campos...
+//     }
+// }, 50); // 50ms já costuma resolver
+// //////////////////////////////
 
-document.addEventListener("DOMContentLoaded", function () {
-    console.log("DOM pronto. Dados recebidos do PHP:", dadosServicos);
-    criarCampos(dadosServicos);
-});
+// document.addEventListener("DOMContentLoaded", function () {
+//     console.log("DOM pronto. Dados recebidos do PHP:", dadosServicos);
+//     criarCampos(dadosServicos);
+// });
+
 
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -565,6 +566,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td><input type="hidden" name="id[]" value="${horarios}"></td>
             <td><input type="date" name="tipoDia[]" value=""></td>
             <td><input type="time" name="inicio[]" value="" class="inicio" data-index="${index}"></td>
             <td><input type="time" name="fim[]" value="" class="fim" data-index="${index}"></td>
@@ -573,8 +575,6 @@ document.addEventListener("DOMContentLoaded", function () {
         tbody.appendChild(row);
     });
     })
-
-
 
 
 

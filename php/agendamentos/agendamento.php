@@ -7,7 +7,9 @@
 </head>
 <body>
 <?php
-require __DIR__ . '/vendor/autoload.php';
+include '../login_empresa/get_id.php';
+include '../conexao.php';
+require __DIR__ . '../../vendor/autoload.php';
 
 use MercadoPago\SDK;
 use MercadoPago\Preference;
@@ -15,7 +17,9 @@ use MercadoPago\Item;
 
 SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
 
-include 'conexao.php';
+
+
+
 $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
 $diaHoraDisponivel = $conn->query("SELECT dia hora FROM dados_pessoais")->fetch_all(MYSQLI_ASSOC);
 
@@ -40,14 +44,12 @@ foreach ($configs as $config) {
     $qtdFuncionarios = $config['quantidade_de_funcionarios'];
 }
 
-
-
 $valorAtual = 0;
 foreach ($configs as $config) {
     $servicoConfig = $config['tipo_servico'];
     $valor = $config['valor'];
 
-    if ($servico === $servicoConfig) {
+    if ( $servicoConfig) {
         $valorAtual = (float)$valor;
         break;
     }
@@ -55,6 +57,7 @@ foreach ($configs as $config) {
 
 // Calcula o valor total
 $valor_total = $valorAtual * $duracao;
+
 
 if ($conn->connect_error) {
     die("Erro na conexão com o banco: " . $conn->connect_error);
@@ -187,13 +190,13 @@ if ($qtdAgendadas >= $qtdFuncionarios) {
 
 
 $pagamento = $conn->prepare(
-    "INSERT INTO pagamento (tipo_de_servico, duracao, valor_pago, status_pagamento) 
-     VALUES (?, ?, ?, 'pendente')"
+    "INSERT INTO pagamento (empresa_id, tipo_de_servico, duracao, valor_pago, status_pagamento) 
+     VALUES (?, ?, ?, ?, 'pendente')"
 );
 if (!$pagamento) {
     die("Erro ao preparar pagamento: " . $conn->error);
 }
-$pagamento->bind_param("sss", $servico, $duracao, $valor_total);
+$pagamento->bind_param("isss", $empresa_id, $servico, $duracao, $valor_total);
 $pagamentoOk = $pagamento->execute();
 $pagamento_id = $conn->insert_id;
 
@@ -204,13 +207,13 @@ if (!$pagamentoOk) {
 
 $dadosPessoais = $conn->prepare(
     "INSERT INTO dados_pessoais 
-     (nome, sobrenome, nascimento, email, cpf, celular, dia, hora, pagamento_id, servico_id) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+     (empresa_id, nome, sobrenome, nascimento, email, cpf, celular, dia, hora, pagamento_id, servico_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 );
 if (!$dadosPessoais) {
     die("Erro ao preparar dados pessoais: " . $conn->error);
 }
-$dadosPessoais->bind_param("ssssssssii", $nome, $sobrenome, $nascimento, $email, $cpf, $cll, $dia, $hora, $pagamento_id, $servico_id);
+$dadosPessoais->bind_param("issssssssii", $empresa_id, $nome, $sobrenome, $nascimento, $email, $cpf, $cll, $dia, $hora, $pagamento_id, $servico_id);
 $dadosPessoaisOk = $dadosPessoais->execute();
 
 if ($pagamentoOk && $dadosPessoaisOk) {
@@ -230,7 +233,7 @@ $preference = new Preference();
 $preference->items = [$item];
 $preference->external_reference = $pagamento_id; 
 
-$base_url = "https://3d5d-2804-7f0-b7c2-2833-28ec-b207-9d9c-aa1a.ngrok-free.app/wesley";
+$base_url = "https://ea55-2804-7f0-b7c2-2833-1d31-e631-f38d-7e78.ngrok-free.app/wesley/pages";
 
 
 $preference->back_urls = [
@@ -239,7 +242,7 @@ $preference->back_urls = [
     "pending" => $base_url . "/pendente.html"
 ];
 $preference->auto_return = "approved";
-$preference->notification_url = $base_url . "/php/confirmacao_vendas/notificacao.php";
+$preference->notification_url = $base_url . "/confirmacao_vendas/notificacao.php";
 
 try {
     $preference->save();
@@ -254,28 +257,43 @@ try {
 
 $dadosPessoais->close();
 $pagamento->close();
-$conn->close();
 
-$i = 1;
-foreach ($configs as $config) {
-    // Pega os valores da linha atual
-    $id = $config['id'];
-    $idSecundario = $config['id_secundario'];
-    $servico = $config['tipo_servico'];
-    $valor = $config['valor'];
-    $qtFuncionarios = $config['quantidade_de_funcionarios'];
-    $duracao = $config['duracao_servico'];
-    $intervalo = $config['intervalo_entre_servico'];
 
-    $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
+// $i = 1;
+// foreach ($configs as $config) {
+//     // Pega os valores da linha atual
+//     $id = $config['id'];
+//     $idSecundario = $config['id_secundario'];
+//     $valor = $config['valor'];
+//     $qtFuncionarios = $config['quantidade_de_funcionarios'];
+//     $duracao = $config['duracao_servico'];
+
+
+//     $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
+// }
+
+
+
+
+
+$sql = "SELECT tipo_servico, duracao_servico, valor FROM servico WHERE empresa_id = ? AND id = ? LIMIT 1";
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    die("Erro na preparação: " . $conn->error);
 }
 
+$stmt->bind_param("ii", $empresa_id, $servico_id); // Apenas 2 parâmetros: empresa_id e servico_id
+$stmt->execute();
+$stmt->bind_result($tipo_servico, $duracao_servico, $valor); // Agora sim, os dois campos
+$stmt->fetch();
+$stmt->close(); // Boa prática
 
+$valor_total = $duracao_servico * $valor;
 
 echo "<h1>Obrigado, " . htmlspecialchars($nome) . ", pela sua preferência!</h1>";
-echo "<p>Serviço: <strong>" . htmlspecialchars($servico) . "</strong></p>";
+echo "<p>Serviço: <strong>" . htmlspecialchars($tipo_servico) . "</strong></p>";
 echo "<p>Data: <strong>" . htmlspecialchars($dia) . "</strong> às <strong>" . htmlspecialchars($hora) . "</strong></p>";
-echo "<p>Duração: <strong>" . htmlspecialchars($duracao) . " cessão(ões)</strong></p>";
+echo "<p>Duração: <strong>" . htmlspecialchars($duracao_servico) . " cessão(ões)</strong></p>";
 echo "<p>Total: R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
 echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
 
