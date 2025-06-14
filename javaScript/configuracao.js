@@ -566,7 +566,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="hidden" name="id[]" value="${horarios}"></td>
             <td><input type="date" name="tipoDia[]" value=""></td>
             <td><input type="time" name="inicio[]" value="" class="inicio" data-index="${index}"></td>
             <td><input type="time" name="fim[]" value="" class="fim" data-index="${index}"></td>

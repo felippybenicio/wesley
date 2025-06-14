@@ -123,52 +123,6 @@ function aplicarConfiguracoesSemanas() {
     });
 
 
-
-
-
-
-//     const todosHorarios = [
-//   '08:00', '09:00', '10:00', '11:00',
-//   '13:00', '14:00', '15:00', '16:00'
-// ];
-
-// function carregarHorarios(dataSelecionada) {
-//   fetch(`php/get_horarios_ocupados.php?data=${dataSelecionada}`)
-//     .then(res => res.json())
-//     .then(ocupados => {
-//       const horariosDisponiveis = todosHorarios.filter(h => !ocupados.includes(h));
-//       const select = document.getElementById('horarios');
-
-//       select.innerHTML = ''; // limpa
-
-//       horariosDisponiveis.forEach(horario => {
-//         const option = document.createElement('option');
-//         option.value = horario;
-//         option.textContent = horario;
-//         select.appendChild(option);
-//       });
-
-//       if (horariosDisponiveis.length === 0) {
-//         const option = document.createElement('option');
-//         option.textContent = 'Sem horários disponíveis';
-//         option.disabled = true;
-//         select.appendChild(option);
-//       }
-//     });
-// }
-
-// // Exemplo: quando o usuário escolhe a data
-// document.getElementById('data').addEventListener('change', e => {
-//   carregarHorarios(e.target.value);
-// });
-
-
-
-
-
-
-
-
     
     function dataDoAgendamento() {
     const dias = {};
@@ -316,23 +270,81 @@ function aplicarConfiguracoesSemanas() {
      });
 });
 
+// QUANTIDADE DE agendamentos
+const container = document.getElementById('agendamentos-container');
+const qtdSelect = document.getElementById('qtdagendamentos');
+let agendamentoAtivo = null;
 
+qtdSelect.addEventListener('change', function () {
+    const qtd = parseInt(this.value);
+    container.innerHTML = '';
+
+    for (let i = 0; i < qtd; i++) {
+        const div = document.createElement('div');
+        div.classList.add('bloco-agendamento');
+        div.dataset.index = i;
+
+        div.innerHTML = `
+            <hr>
+            <p><strong>Agendamento ${i + 1}</strong></p>
+            <label>Serviço:</label>
+            <select id="servico-${i}" name="agendamentos[${i}][servico_id]" required>
+                ${configs.map(config => {
+                    const id = config.id;
+                    const nome = config.tipo_servico;
+                    const valor = parseFloat(config.valor).toFixed(2).replace('.', ',');
+                    const duracao = config.duracao_servico;
+                    const intervalo = config.intervalo_entre_servico;
+                    return `<option value="${id}" data-duracao="${duracao}" data-intervalo="${intervalo}">${nome} - R$${valor}</option>`;
+                }).join('')}
+            </select>
+
+            <label for="dia[${i}]">Para qual dia gostaria de agendar?</label>
+            <input type="date" id="dia-${i}" name="dia[${i}]" readonly>
+
+            <label for="hora[${i}]">Qual horário melhor para você?</label>
+            <input type="time" id="hora-${i}" name="hora[${i}]" readonly>
+        `;
+
+        // Clique no bloco inteiro ativa
+        div.addEventListener('click', () => {
+            agendamentoAtivo = i;
+            console.log("Agendamento ativo:", agendamentoAtivo);
+        });
+
+        // Clique em elementos internos também ativa o bloco
+        setTimeout(() => {
+            div.querySelectorAll('input, select, label').forEach(elemento => {
+                elemento.addEventListener('click', () => {
+                    agendamentoAtivo = i;
+                    console.log("Agendamento ativo (interno):", agendamentoAtivo);
+                });
+            });
+        }, 0);
+
+        container.appendChild(div);
+    }
+});
+
+qtdSelect.dispatchEvent(new Event('change'));
 
 function ativarCliqueNosDias() {
     const dias = document.querySelectorAll('.data');
 
     dias.forEach(td => {
         td.addEventListener('click', () => {
-            console.log('Clicou em:', td.textContent);
-            const dia = td.textContent.padStart(2, '0');
-            let agora = new Date();
-            let mesAtual = agora.getMonth() + 1;
-            let anoAtual = agora.getFullYear();
-            const mes = String(mesAtual).padStart(2, '0');
-            const ano = anoAtual;
-            const dataSelecionada = `${ano}-${mes}-${dia}`; 
+            if (agendamentoAtivo === null) {
+                alert("Clique em um agendamento primeiro.");
+                return;
+            }
 
-            console.log('Data clicada:', dataSelecionada);
+            const dia = td.textContent.padStart(2, '0');
+
+            // Usa o mês do <select>
+            const mesSelecionado = document.getElementById('mesSelect').value.padStart(2, '0');
+            const agora = new Date();
+            const ano = agora.getFullYear(); // opcionalmente, você pode criar um select de ano também
+            const dataSelecionada = `${ano}-${mesSelecionado}-${dia}`;
 
             fetch('buscar_horario.php', {
                 method: 'POST',
@@ -343,28 +355,32 @@ function ativarCliqueNosDias() {
             })
             .then(response => response.json())
             .then(horarios => {
-                console.log('Horários recebidos do PHP:', horarios);
-
                 if (!horarios.inicio || !horarios.termino) {
                     alert("Nenhum horário disponível para essa data.");
                     return;
                 }
 
-                // Pegando o tempo total entre sessões do PHP (duração + intervalo em minutos)
-                const tempoEntre = (() => {
-                    const servico = document.getElementById("servico");
-                    const indice = parseInt(servico.value); // pega o índice do serviço
-                    return intervaloEntreHorarios[indice]; // usa o tempo correto
-                })();
+                const selectServico = document.getElementById(`servico-${agendamentoAtivo}`);
+                const optionSelecionada = selectServico.options[selectServico.selectedIndex];
+                const servicoId = selectServico.value;
+                const tempoEntre = intervaloEntreHorarios[servicoId] || 60; // fallback pra evitar erro
 
+                console.log("Tempo total entre sessões:", tempoEntre);
+
+
+                // Preenche a data correta no input
+                const inputData = document.getElementById(`dia-${agendamentoAtivo}`);
+                inputData.value = dataSelecionada;
 
                 // Gera e exibe os horários
                 const lista = gerarHorariosComMinutos(horarios.inicio, horarios.termino, tempoEntre);
-                exibirHorarios(lista);
+                
+                if (lista.length === 0) {
+                    alert("Nenhum horário disponível.");
+                    return;
+                }
 
-                // Atualiza texto com tempo total
-                document.getElementById("tempoTotal").textContent =
-                    "Tempo entre serviços: " + formatarMinutos(tempoEntre);
+                exibirHorarios(lista);
             })
             .catch(error => {
                 console.error('Erro ao buscar horários:', error);
@@ -373,26 +389,6 @@ function ativarCliqueNosDias() {
     });
 }
 
-// Função para gerar horários com base no tempo total (minutos)
-function gerarHorariosComMinutos(inicio, fim, tempoTotalMin) {
-    const horarios = [];
-
-    const [hInicio, mInicio] = inicio.split(":").map(Number);
-    const [hFim, mFim] = fim.split(":").map(Number);
-
-    let atual = new Date(0, 0, 0, hInicio, mInicio, 0);
-    const limite = new Date(0, 0, 0, hFim, mFim, 0);
-
-    while (atual <= limite) {
-        const horaStr = atual.toTimeString().substring(0, 5);
-        horarios.push(horaStr);
-        atual.setMinutes(atual.getMinutes() + tempoTotalMin);
-    }
-
-    return horarios;
-}
-
-// Função auxiliar para mostrar os horários na tabela
 function exibirHorarios(horarios) {
     const tbody = document.querySelector("#horarios tbody");
     tbody.innerHTML = "";
@@ -402,16 +398,17 @@ function exibirHorarios(horarios) {
         const td = document.createElement("td");
         td.textContent = horario;
 
-        // Evento de clique no horário
         td.addEventListener('click', function () {
-            // Remove cor azul de todos os horários
-            document.querySelectorAll("#horarios tbody td").forEach(el => {
-                el.style.color = ''; // ou 'black' se preferir
-            });
+            if (agendamentoAtivo !== null) {
+                const inputHora = document.getElementById(`hora-${agendamentoAtivo}`);
+                inputHora.value = horario;
 
-            // Marca o horário clicado como azul
-            document.getElementById("hora").value = horario;
-            this.style.color = 'blue';
+                // Atualiza cor do horário selecionado
+                document.querySelectorAll("#horarios tbody td").forEach(el => {
+                    el.style.color = ''; // limpa os outros
+                });
+                this.style.color = 'blue';
+            }
         });
 
         tr.appendChild(td);
@@ -420,178 +417,27 @@ function exibirHorarios(horarios) {
 }
 
 
+function gerarHorariosComMinutos(inicio, fim, intervaloMinutos) {
+    const horarios = [];
 
-// Função para formatar minutos em "xh ymin"
-function formatarMinutos(min) {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return `${h > 0 ? h + "h " : ""}${m > 0 ? m + "min" : "0min"}`;
+    let [hInicio, mInicio] = inicio.split(':').map(Number);
+    let [hFim, mFim] = fim.split(':').map(Number);
+
+    let inicioMin = hInicio * 60 + mInicio;
+    let fimMin = hFim * 60 + mFim;
+
+    while (inicioMin + intervaloMinutos <= fimMin) {
+        let h = Math.floor(inicioMin / 60).toString().padStart(2, '0');
+        let m = (inicioMin % 60).toString().padStart(2, '0');
+        horarios.push(`${h}:${m}`);
+        inicioMin += intervaloMinutos;
+    }
+
+    return horarios;
 }
 
 
+document.addEventListener('DOMContentLoaded', () => {
+    ativarCliqueNosDias();
+});
 
-// // HORAS DISPONIVEIS
-//     const selectServico = document.getElementById('servico');
-//     const selectSessao = document.getElementById('duracao');
-//     const dataSelecionadaInput = document.getElementById('dataSelecionada');
-//     const mesSelect = document.getElementById('mesSelect');
-//     const diasDisponiveisTableBody = document.querySelector('#dataDisponiveis tbody');
-//     const mesStrongElement = document.querySelector('.mes');
-//     const tabelaHorariosBody = document.querySelector('#horarios tbody');
-//     const horaInput = document.getElementById('hora');
-//     const tempoTotalInfo = document.getElementById('tempoTotal');
-
-// function getMonthName(monthNum) {
-//     const monthNames = [
-//         "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-//         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
-//     ];
-//     return monthNames[monthNum - 1] || "Mês Inválido";
-// }
-
-// function gerarDiasDoMes(year, month) {
-//     diasDisponiveisTableBody.innerHTML = "";
-//     const today = new Date();
-//     const firstDay = new Date(year, month - 1, 1);
-//     const lastDay = new Date(year, month, 0).getDate();
-
-//     let dayOfWeek = firstDay.getDay();
-
-//     let row = document.createElement('tr');
-//     for (let i = 0; i < dayOfWeek; i++) {
-//         row.innerHTML += '<td></td>';
-//     }
-
-//     for (let day = 1 ; day <= lastDay; day++) {
-//         const fullDate = new Date(year, month - 1, day);
-//         const isPastDay = fullDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-//         if (dayOfWeek === 0 && day > 1) {
-//             diasDisponiveisTableBody.appendChild(row);
-//             row = document.createElement('tr');
-//         }
-
-//         const cell = document.createElement('td');
-//         cell.id = day;
-//         cell.classList.add('data');
-//         cell.textContent = day;
-
-//         if (isPastDay) {
-//             cell.classList.add('unavailable');
-//         } else {
-//             cell.addEventListener('click', () => {
-//                 document.querySelectorAll('.data.selected').forEach(td => td.classList.remove('selected'));
-//                 cell.classList.add('selected');
-
-//                 const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-//                 dataSelecionadaInput.value = formattedDate;
-//             });
-//         }
-//         row.appendChild(cell);
-//         dayOfWeek = (dayOfWeek + 1) % 7;
-//     }
-
-//     while (dayOfWeek !== 0) {
-//         row.innerHTML += '<td></td>';
-//         dayOfWeek = (dayOfWeek + 1) % 7;
-//     }
-//     diasDisponiveisTableBody.appendChild(row);
-
-//     mesStrongElement.textContent = getMonthName(month);
-// }
-
-// function gerarHorarios() {
-//     const selectedServiceOption = selectServico.options[selectServico.selectedIndex];
-
-//     if (!selectedServiceOption || !selectedServiceOption.dataset.duracao || !selectedServiceOption.dataset.intervalo) {
-//         tabelaHorariosBody.innerHTML = '<tr><td colspan="1">Selecione um serviço válido para ver os horários.</td></tr>';
-//         tempoTotalInfo.textContent = "Tempo entre serviços: -- minutos";
-//         return;
-//     }
-
-//     const duracaoServicoBase = parseInt(selectedServiceOption.dataset.duracao) || 0;
-//     const intervaloEntreServicos = parseInt(selectedServiceOption.dataset.intervalo) || 0;
-    
-//     const numSessoes = parseInt(selectSessao.value) || 1; 
-
-//     const duracaoTotalServico = duracaoServicoBase * numSessoes;
-
-//     const tempoTotalPorSlot = duracaoTotalServico + intervaloEntreServicos;
-
-//     tempoTotalInfo.textContent = `Tempo entre serviços: ${tempoTotalPorSlot} minutos`;
-
-//     tabelaHorariosBody.innerHTML = "";
-
-//     let [expedienteStartH, expedienteStartM] = globalHoraInicio.split(":").map(Number); 
-//     const [expedienteEndH, expedienteEndM] = globalHoraTermino.split(":").map(Number);
-
-//     let currentSlotStart = new Date(0, 0, 0, expedienteStartH, expedienteStartM, 0, 0);
-//     const expedienteEnd = new Date(0, 0, 0, expedienteEndH, expedienteEndM, 0, 0);
-
-//     let slotCounter = 1;
-//     let hasGeneratedHours = false;
-
-//     while (currentSlotStart.getTime() < expedienteEnd.getTime()) {
-//         const currentServiceEnd = new Date(currentSlotStart.getTime());
-//         currentServiceEnd.setMinutes(currentServiceEnd.getMinutes() + duracaoTotalServico);
-
-//         if (currentServiceEnd.getTime() > expedienteEnd.getTime()) {
-//             break;
-//         }
-
-//         const horaFormatada = currentSlotStart.toTimeString().slice(0, 5);
-//         const newRow = document.createElement('tr');
-//         const newCell = document.createElement('td');
-//         newCell.id = `hora${slotCounter}`;
-//         newCell.textContent = horaFormatada;
-//         newCell.classList.add('hora-disponivel');
-//         newCell.addEventListener('click', () => {
-//             document.querySelectorAll('.hora-disponivel.selected').forEach(td => td.classList.remove('selected'));
-//             newCell.classList.add('selected');
-//             horaInput.value = horaFormatada;
-//         });
-
-//         newRow.appendChild(newCell);
-//         tabelaHorariosBody.appendChild(newRow);
-//         hasGeneratedHours = true;
-
-//         currentSlotStart.setMinutes(currentSlotStart.getMinutes() + tempoTotalPorSlot);
-//         slotCounter++;
-//     }
-
-//     if (!hasGeneratedHours) {
-//         tabelaHorariosBody.innerHTML = '<tr><td colspan="1">Nenhum horário disponível para este serviço no expediente.</td></tr>';
-//     }
-// }
-
-// function updateCalendar() {
-//     const today = new Date();
-//     const currentYear = today.getFullYear();
-//     const selectedMonth = parseInt(mesSelect.value);
-
-//     gerarDiasDoMes(currentYear, selectedMonth);
-// }
-
-// function initializeDate() {
-//     const today = new Date();
-//     const year = today.getFullYear();
-//     const month = String(today.getMonth() + 1).padStart(2, '0');
-//     const day = String(today.getDate()).padStart(2, '0');
-
-//     dataSelecionadaInput.value = `${year}-${month}-${day}`;
-//     mesSelect.value = today.getMonth() + 1;
-//     mesStrongElement.textContent = getMonthName(today.getMonth() + 1);
-
-//     gerarDiasDoMes(year, today.getMonth() + 1);
-// }
-
-// window.addEventListener('load', () => {
-//     initializeDate();
-//     setTimeout(gerarHorarios, 100);
-// });
-
-// selectServico.addEventListener('change', gerarHorarios);
-// selectSessao.addEventListener('change', gerarHorarios);
-// mesSelect.addEventListener('change', updateCalendar); 
-
-   

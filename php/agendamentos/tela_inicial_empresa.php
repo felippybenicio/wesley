@@ -14,6 +14,7 @@ $empresa_id = $_SESSION['empresa_id'];
 $stmt = $conn->prepare("SELECT * FROM servico WHERE empresa_id = ?");
 $stmt->bind_param("i", $empresa_id);
 $stmt->execute();
+
 $result = $stmt->get_result();
 $configs = $result->fetch_all(MYSQLI_ASSOC);
 
@@ -100,48 +101,25 @@ function timeToMinutes($timeStr) {
             </section>
             <section id="tipoServico">
                 <h2>tipos de serviçoes que deseja</h2>
-                <div>
-                    <label for="servico">qual tipo de serviço voce gostaria</label>
-                    <select name="servico" id="servico">
-                        <?php
-                            $i = 1;
-                            if (isset($configs) && is_array($configs)) {
-                                foreach ($configs as $config) {
-                                    $id = $config['id'];
 
-                                    $servico_name = htmlspecialchars($config['tipo_servico']);
-                                    $valor_formatado = htmlspecialchars(number_format($config['valor'], 2, ',', '.'));
-                                    $duracao_minutos = timeToMinutes($config['duracao_servico']);
-                                    $intervalo_minutos = timeToMinutes($config['intervalo_entre_servico']);
-                                    echo "<option value='$id' data-duracao='{$duracao_minutos}' data-intervalo='{$intervalo_minutos}'>
-                                            {$servico_name} - R$$valor_formatado
-                                        </option>";
-                                    $i++;
-                                }
-                            } else {
-                                echo "<option value=''>Nenhum serviço disponível</option>";
-                            }
-                        ?>
-                    </select>
+                
+                <div>
+                    <label for="qtdagendamentos">Quantas sessões deseja:</label>
+
+                    <?php
+                        $stmt = $conn->prepare("SELECT agendamentos_por_clientes FROM quantidade_servico WHERE empresa_id = ?");
+                        $stmt->bind_param("i", $empresa_id);
+                        $stmt->execute();
+                        $stmt->bind_result($agendamentosPorClientes);
+                        $stmt->fetch();
+                        $stmt->close();
+                    ?>
+                    <input type="number" name="qtdagendamentos" id="qtdagendamentos" value="1" max="<?= htmlspecialchars($agendamentosPorClientes) ?>">
                 </div>
+                <div name="servico" id="servico"></div>
+
+                <div id="agendamentos-container"></div>
                 <div>
-                    <label for="duracao">quantas cessão que deseja: </label>
-                    <select name="duracao" id="duracao">
-
-                        <?php
-                            for ($i = 1; $i <= 3; $i++) {
-                                $cessao = "$i";
-                                echo "<option value='$cessao'>$i cessão</option>";
-                            }
-
-
-                        ?>
-                    </select>
-                </div>
-                <div>
-                    <label for="dia">Para qual dia gostaria de agendar? </label>
-                    <input type="date" id="dataSelecionada" name="dia" readonly placeholder="__/__/__">
-
                     <select name="mes" id="mesSelect">
                         <option value="1">janeiro</option>
                         <option value="2">fevereiro</option>
@@ -159,13 +137,11 @@ function timeToMinutes($timeStr) {
 
                     <table id="dataDisponiveis">
                         <p>dias disponiveis neste mes de <strong class="mes">...</strong></p>
-                        <tbody>
-                            </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
                 <div>
-                    <label for="hora">Qual horario melhor para você? </label>
-                    <input type="time" name="hora" id="hora" readonly>
+                   
                     <table id="horarios">
                         <thead>
                             <th>horas disponiveis</th>
@@ -173,7 +149,6 @@ function timeToMinutes($timeStr) {
                         <tbody>
                         </tbody>
                     </table>
-                    <p id="tempoTotal">Tempo entre serviços: -- minutos</p>
                 </div>
                 
                 <button type="submit">agendar</button>
@@ -196,6 +171,11 @@ function timeToMinutes($timeStr) {
      <script>
         const cessao = <?php echo json_encode($cessao); ?>
     </script>
+    <script>
+        const configs = <?php echo json_encode($configs); ?>;
+        console.log("Configs carregados:", configs);
+    </script>
+
     <script src="../../javaScript/tela_pricipal.js"></script>
 </body>
 </html>

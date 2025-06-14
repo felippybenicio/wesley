@@ -12,7 +12,7 @@
 
     $mesesIndisponiveis = $_POST['mesIndisponivel'] ?? [];
     $diasSemanaIndisponiveis = $_POST['semanaIndisponivel'] ?? [];
-    $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
+    $agendamentosPorClientes = $_POST['agendamentosPorClientes'] ?? 1;
 
     $servicoId = [];
     $idSecundario = [];
@@ -64,21 +64,24 @@ $stmt->fetch();
 $stmt->close();
 
 if ($count > 0) {
-    // Atualiza
-    $stmt = $conn->prepare("UPDATE quantidade_servico SET quantidade_de_servico = ? WHERE empresa_id = ?");
-    $stmt->bind_param("ii", $quantidadeServicos, $empresa_id);
+    // Atualiza os dois campos
+    $stmt = $conn->prepare("UPDATE quantidade_servico SET quantidade_de_servico = ?, agendamentos_por_clientes = ? WHERE empresa_id = ?");
+    $stmt->bind_param("iii", $quantidadeServicos, $agendamentosPorClientes, $empresa_id);
 } else {
-    // Insere novo
-    $stmt = $conn->prepare("INSERT INTO quantidade_servico (empresa_id, quantidade_de_servico) VALUES (?, ?)");
-    $stmt->bind_param("ii", $empresa_id, $quantidadeServicos);
+    // Insere os dois campos
+    $stmt = $conn->prepare("INSERT INTO quantidade_servico (empresa_id, quantidade_de_servico, agendamentos_por_clientes) VALUES (?, ?, ?)");
+    $stmt->bind_param("iii", $empresa_id, $quantidadeServicos, $agendamentosPorClientes);
 }
 $stmt->execute();
 $stmt->close();
 
-
     // Limpa as tabelas relacionadas a serviços
     $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
-    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
+$quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
+
+$agendamentosPorClientes = $_POST['agendamentosPorClientes'] ?? 1;
+$agendamentosPorClientes = max(1, min((int)$agendamentosPorClientes, 10));
+
 
 for ($i = 1; $i <= $quantidadeServicos; $i++) {
     $id = $_POST["id$i"] ?? null;  // pode ser null
@@ -317,6 +320,19 @@ if ($res2) {
         }
     }
 
+    $quantidadeServicos = 1;
+    $agendamentosPorClientes = 1;
+
+    $stmt = $conn->prepare("SELECT quantidade_de_servico, agendamentos_por_clientes FROM quantidade_servico WHERE empresa_id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->store_result();
+
+    if ($stmt->num_rows > 0) {
+        $stmt->bind_result($quantidadeServicos, $agendamentosPorClientes);
+        $stmt->fetch();
+    }
+    $stmt->close();
 ?>    
 
 <!DOCTYPE html>
@@ -341,8 +357,10 @@ if ($res2) {
             <label for="quantidadeServicos">Quantidade de serviços</label>
             <input type="number" name="quantidadeServicos" id="quantidadeServicos" value="<?= htmlspecialchars($quantidadeServicos) ?>" min="1" max="5">
 
-            <div id="camposServicos"><!--no js--></div>
+            <div id="camposServicos"><!--no js--></div><br>
           
+            <label for="agendamentosPorClientes">Máx. sessões por cliente:</label>
+            <input type="number" name="agendamentosPorClientes" id="agendamentosPorClientes" value="<?= htmlspecialchars($agendamentosPorClientes) ?>" min="1" max="10">
 
         
         <h2>mes indisponivel</h2>

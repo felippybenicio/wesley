@@ -21,7 +21,7 @@ SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d0
 
 
 $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
-$diaHoraDisponivel = $conn->query("SELECT dia hora FROM dados_pessoais")->fetch_all(MYSQLI_ASSOC);
+$diaHoraDisponivel = $conn->query("SELECT dia hora FROM agendamento")->fetch_all(MYSQLI_ASSOC);
 
 
 $nome       = $_POST["nome"] ?? '';
@@ -31,8 +31,8 @@ $email      = $_POST["email"] ?? '';
 $cpf        = $_POST["cpf"] ?? '';
 $cll        = $_POST["cll"] ?? '';
 $servico    = $_POST["servico"] ?? '';
-preg_match('/\d+/', $_POST["duracao"], $match);
-$duracao = (int)($match[0] ?? 1);
+preg_match('/\d+/', $_POST["qtdagendamentos"], $match);
+$qtdagendamentos = (int)($match[0] ?? 1);
 $dia        = $_POST["dia"] ?? '';
 $hora       = $_POST["hora"] ?? '';
 $servico_id = isset($_POST['servico']) ? (int)$_POST['servico'] : null;
@@ -55,21 +55,18 @@ foreach ($configs as $config) {
     }
 }
 
-// Calcula o valor total
-$valor_total = $valorAtual * $duracao;
-
 
 if ($conn->connect_error) {
     die("Erro na conexão com o banco: " . $conn->connect_error);
 }
 
 
-$verificaCpf = $conn->prepare("SELECT id FROM dados_pessoais WHERE cpf = ?");
-$verificaCpf->bind_param("s", $cpf);
+$verificaCpf = $conn->prepare("SELECT id FROM clientes WHERE empresa_id = ? AND cpf = ?");
+$verificaCpf->bind_param("is", $empresa_id, $cpf);
 $verificaCpf->execute();
 $verificaCpf->store_result();
 
-if ($verificaCpf->num_rows > 0) {
+if ($empresa_id && $verificaCpf->num_rows > 0) {
     echo "<p style='color:red;'>Já existe um agendamento com este CPF.</p>";
     $verificaCpf->close();
     $conn->close();
@@ -77,17 +74,6 @@ if ($verificaCpf->num_rows > 0) {
 }
 $verificaCpf->close();
 
-
-
-
-
-
-
-
-// Sanitização básica (mais robusta seria recomendada dependendo do contexto)
-$servico_id = (int)$servico_id; // Garante que é um inteiro
-$dia = htmlspecialchars($dia, ENT_QUOTES, 'UTF-8'); // Protege contra XSS
-$hora = htmlspecialchars($hora, ENT_QUOTES, 'UTF-8'); // Protege contra XSS
 
 
 // --- 2. Obter a quantidade de funcionários para o serviço ---
@@ -113,7 +99,7 @@ if (empty($qtdFuncionarios)) {
 }
 
 // --- 3. Contar agendamentos existentes para o dia/hora/serviço ---
-$stmt = $conn->prepare("SELECT COUNT(*) FROM dados_pessoais WHERE dia = ? AND hora = ? AND servico_id = ?");
+$stmt = $conn->prepare("SELECT COUNT(*) FROM agendamento WHERE dia = ? AND hora = ? AND servico_id = ?");
 if (!$stmt) {
     // Em produção, registre o erro em um log
     error_log("Erro no prepare (agendamentos): " . $conn->error);
@@ -122,7 +108,10 @@ if (!$stmt) {
     exit;
 }
 $stmt->bind_param("ssi", $dia, $hora, $servico_id);
-$stmt->execute();
+if (!$stmt) {
+    // Em produção, registre o erro em um log
+    error_log("Erro no prepare (agendamentos): " . $conn->error);
+}
 $stmt->bind_result($qtdAgendadas);
 $stmt->fetch();
 $stmt->close();
@@ -135,11 +124,11 @@ if ($qtdAgendadas >= $qtdFuncionarios) {
 } else {
     // Se chegou aqui, o horário está disponível!
     // Você pode continuar com o processo de agendamento,
-    // como inserir os dados na tabela dados_pessoais.
+    // como inserir os dados na tabela clientes.
     echo "Horário disponível! Prossiga com o agendamento.";
 
     // Exemplo: Inserir o agendamento (adapte conforme sua lógica de negócios)
-    // $stmt_insert = $conn->prepare("INSERT INTO dados_pessoais (dia, hora, servico_id, ...) VALUES (?, ?, ?, ...)");
+    // $stmt_insert = $conn->prepare("INSERT INTO clientes (dia, hora, servico_id, ...) VALUES (?, ?, ?, ...)");
     // $stmt_insert->bind_param("ssi", $dia, $hora, $servico_id);
     // $stmt_insert->execute();
     // $stmt_insert->close();
@@ -168,7 +157,7 @@ if ($qtdAgendadas >= $qtdFuncionarios) {
 // $stmt->close();
 
 // // Verificamos quantas pessoas já estão agendadas nesse dia/hora/serviço
-// $stmt = $conn->prepare("SELECT COUNT(*) FROM dados_pessoais WHERE dia = ? AND hora = ? AND servico_id = ?");
+// $stmt = $conn->prepare("SELECT COUNT(*) FROM clientes WHERE dia = ? AND hora = ? AND servico_id = ?");
 // $servico_id = $_POST['servico_id'] ?? null;
 // if (!$stmt) {
 //     die("Erro no prepare (agendamentos): " . $conn->error);
@@ -187,54 +176,99 @@ if ($qtdAgendadas >= $qtdFuncionarios) {
 // }
 
 
+$valor_total = 0;
+$qtdagendamentos = count($_POST['agendamentos']); // ou: count($servicos)
+
+foreach ($_POST['agendamentos'] as $ag) {
+    $servico_id = (int)$ag['servico_id'];
+
+    $stmt = $conn->prepare("SELECT valor FROM servico WHERE empresa_id = ? AND id = ?");
+    $stmt->bind_param("ii", $empresa_id, $servico_id);
+    $stmt->execute();
+    $stmt->bind_result($valor_unitario);
+    $stmt->fetch();
+    $stmt->close();
+
+    $valor_total += (float)$valor_unitario;
+}
 
 
+$dias = $_POST['dia'];                 // array de datas
+$horas = $_POST['hora'];               // array de horários
+$servicos = $_POST['agendamentos'];    // array associativo
+
+// Inserir pagamento
 $pagamento = $conn->prepare(
-    "INSERT INTO pagamento (empresa_id, tipo_de_servico, duracao, valor_pago, status_pagamento) 
-     VALUES (?, ?, ?, ?, 'pendente')"
+    "INSERT INTO pagamento (empresa_id, qtdagendamentos, valor_pagar, status_pagamento) 
+     VALUES (?, ?, ?, 'pendente')"
 );
 if (!$pagamento) {
     die("Erro ao preparar pagamento: " . $conn->error);
 }
-$pagamento->bind_param("isss", $empresa_id, $servico, $duracao, $valor_total);
-$pagamentoOk = $pagamento->execute();
-$pagamento_id = $conn->insert_id;
-
-if (!$pagamentoOk) {
-    die("Erro ao salvar pagamento: " . $pagamento->error);
+$pagamento->bind_param("iis", $empresa_id, $qtdagendamentos, $valor_total);
+if (!$pagamento->execute()) {
+    die("Erro ao executar pagamento: " . $pagamento->error);
 }
+$pagamento_id = $conn->insert_id;
+$pagamento->close();
 
-
+// Inserir cliente
 $dadosPessoais = $conn->prepare(
-    "INSERT INTO dados_pessoais 
-     (empresa_id, nome, sobrenome, nascimento, email, cpf, celular, dia, hora, pagamento_id, servico_id) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO clientes (empresa_id, nome, sobrenome, nascimento, email, cpf, celular, pagamento_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 );
 if (!$dadosPessoais) {
-    die("Erro ao preparar dados pessoais: " . $conn->error);
+    die("Erro ao preparar cliente: " . $conn->error);
 }
-$dadosPessoais->bind_param("issssssssii", $empresa_id, $nome, $sobrenome, $nascimento, $email, $cpf, $cll, $dia, $hora, $pagamento_id, $servico_id);
-$dadosPessoaisOk = $dadosPessoais->execute();
+$dadosPessoais->bind_param("issssssi", $empresa_id, $nome, $sobrenome, $nascimento, $email, $cpf, $cll, $pagamento_id);
+if (!$dadosPessoais->execute()) {
+    die("Erro ao executar cliente: " . $dadosPessoais->error);
+}
+$cliente_id = $conn->insert_id;
+$dadosPessoais->close();
 
-if ($pagamentoOk && $dadosPessoaisOk) {
-    echo "<p>Dados salvos com sucesso!</p>";
-} else {
-    echo "<p>Erro ao salvar dados: " . $dadosPessoais->error . " e " . $pagamento->error . "</p>";
+// Verificação: cliente_id está definido?
+if (!$cliente_id) {
+    die("Erro: cliente_id não foi gerado corretamente.");
+}
+
+// Inserir agendamentos
+foreach ($servicos as $index => $servicoData) {
+    $servico_id = (int) $servicoData['servico_id'];
+    $dia = htmlspecialchars($dias[$index], ENT_QUOTES, 'UTF-8');
+    $hora = htmlspecialchars($horas[$index], ENT_QUOTES, 'UTF-8');
+
+    $agendamento = $conn->prepare(
+        "INSERT INTO agendamento (empresa_id, cliente_id, servico_id, dia, hora, pagamento_id) 
+         VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    if (!$agendamento) {
+        die("Erro ao preparar agendamento: " . $conn->error);
+    }
+
+    $agendamento->bind_param("iiissi", $empresa_id, $cliente_id, $servico_id, $dia, $hora, $pagamento_id);
+    if (!$agendamento->execute()) {
+        die("Erro ao salvar agendamento: " . $agendamento->error);
+    }
+    if ($agendamento) {
+        $agendamento->close();
+    }
+
 }
 
 
 
+// MercadoPago
 $item = new Item();
 $item->title = $servico;
-$item->quantity = $duracao;
-$item->unit_price = $valor;
+$item->quantity = 1;
+$item->unit_price = $valor_total;
 
 $preference = new Preference();
 $preference->items = [$item];
-$preference->external_reference = $pagamento_id; 
+$preference->external_reference = $pagamento_id;
 
-$base_url = "https://ea55-2804-7f0-b7c2-2833-1d31-e631-f38d-7e78.ngrok-free.app/wesley/pages";
-
+$base_url = "https://fc3d-2804-7f0-b7c2-9926-48a7-f8a7-cb0a-8851.ngrok-free.app/wesley/pages";
 
 $preference->back_urls = [
     "success" => $base_url . "/sucesso.html",
@@ -254,49 +288,42 @@ try {
     exit;
 }
 
+if (isset($dadosPessoais) && $dadosPessoais instanceof mysqli_stmt) {
+    try {
+        $dadosPessoais->close();
+    } catch (Throwable $e) {
+        // já estava fechado, ignora
+    }
+}
 
-$dadosPessoais->close();
-$pagamento->close();
-
-
-// $i = 1;
-// foreach ($configs as $config) {
-//     // Pega os valores da linha atual
-//     $id = $config['id'];
-//     $idSecundario = $config['id_secundario'];
-//     $valor = $config['valor'];
-//     $qtFuncionarios = $config['quantidade_de_funcionarios'];
-//     $duracao = $config['duracao_servico'];
-
-
-//     $tempoentrecessao[$i] = $duracao[$i] + $intervalo[$i];
-// }
+if (isset($pagamento) && $pagamento instanceof mysqli_stmt) {
+    try {
+        $pagamento->close();
+    } catch (Throwable $e) {
+        // já estava fechado, ignora
+    }
+}
 
 
-
-
-
+// Dados do serviço (exibir na tela)
 $sql = "SELECT tipo_servico, duracao_servico, valor FROM servico WHERE empresa_id = ? AND id = ? LIMIT 1";
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
     die("Erro na preparação: " . $conn->error);
 }
-
-$stmt->bind_param("ii", $empresa_id, $servico_id); // Apenas 2 parâmetros: empresa_id e servico_id
+$stmt->bind_param("ii", $empresa_id, $servico_id);
 $stmt->execute();
-$stmt->bind_result($tipo_servico, $duracao_servico, $valor); // Agora sim, os dois campos
+$stmt->bind_result($tipo_servico, $duracao_servico, $valor);
 $stmt->fetch();
-$stmt->close(); // Boa prática
+$stmt->close();
 
-$valor_total = $duracao_servico * $valor;
-
+// Exibição final
 echo "<h1>Obrigado, " . htmlspecialchars($nome) . ", pela sua preferência!</h1>";
 echo "<p>Serviço: <strong>" . htmlspecialchars($tipo_servico) . "</strong></p>";
 echo "<p>Data: <strong>" . htmlspecialchars($dia) . "</strong> às <strong>" . htmlspecialchars($hora) . "</strong></p>";
-echo "<p>Duração: <strong>" . htmlspecialchars($duracao_servico) . " cessão(ões)</strong></p>";
+echo "<p>Duração unitária: <strong>" . htmlspecialchars($duracao_servico) . " sessão(ões)</strong></p>";
 echo "<p>Total: R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
 echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
-
 ?>
 </body>
 </html>
