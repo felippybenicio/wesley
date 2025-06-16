@@ -12,6 +12,8 @@ let anoAtual = agora.getFullYear();
 
 //SERVIÇOS E FUNCIONARIOS
 
+
+
     const qtdInput = document.getElementById("quantidadeServicos");
     const container = document.getElementById("camposServicos");
 
@@ -45,7 +47,6 @@ let anoAtual = agora.getFullYear();
         funcionarios: funcionarios
     });
 }
-
 
 
     // 2. Preenche os novos blocos com os dados já preenchidos ou os dados originais
@@ -160,7 +161,7 @@ let anoAtual = agora.getFullYear();
             if (!tipoInput || !valorInput || !qtFuncInput) continue;
 
             const tipo = tipoInput.value || "";
-            const valor = "";
+            const valor = valorInput.value || "";
             const qtFuncionario = parseInt(qtFuncInput.value) || 1;
             const duracao = duracaoInput ? duracaoInput.value : "";
             const intervalo = intervaloInput ? intervaloInput.value : "";
@@ -203,25 +204,6 @@ let anoAtual = agora.getFullYear();
 
     return novaLista;
 }
-////////////////////////
-// criarCampos(dadosServicos);
-
-// setTimeout(() => {
-//     // Aqui, o DOM já teve tempo de renderizar os campos
-//     const qtd = document.getElementById("quantidadeServicos").value;
-//     for (let i = 1; i <= qtd; i++) {
-//         const s = dadosServicos[i - 1] || {};
-//         document.getElementById(`tipo_servico${i}`).value = s.tipo_servico || "";
-//         // e os outros campos...
-//     }
-// }, 50); // 50ms já costuma resolver
-// //////////////////////////////
-
-// document.addEventListener("DOMContentLoaded", function () {
-//     console.log("DOM pronto. Dados recebidos do PHP:", dadosServicos);
-//     criarCampos(dadosServicos);
-// });
-
 
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -242,6 +224,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const dadosAjustados = garantirQuantidadeDeServicos(dadosAtuais, qtd);
         criarCampos(dadosAjustados);
     });
+
 });
 
 
@@ -390,7 +373,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 const mesNumero = mesSelect.value.padStart(2, '0');
                 const ano = anoSelect.value;
 
-                const dataFormatada = `${diaNumero}/${mesNumero}/${ano}`; // para verificação
                 const dataParaInput = `${ano}-${mesNumero}-${diaNumero}`; // para input date (yyyy-mm-dd)
 
                 const jaExiste = [...ul.querySelectorAll("input[type='date']")]
@@ -442,7 +424,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (diaElement) {
                             diaElement.classList.remove("desabilitado");
                             diaElement.style.pointerEvents = "auto";
-                            diaElement.style.opacity = "1";
+                            diaElement.style.color = "yellow";
 
                             if (ul.children.length === 0) {
                                 h3.style.display = "none";
@@ -574,15 +556,4 @@ document.addEventListener("DOMContentLoaded", function () {
         tbody.appendChild(row);
     });
     })
-
-
-
-
-
-
-
-
-
-
-
 

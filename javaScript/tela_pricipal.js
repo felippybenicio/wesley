@@ -35,22 +35,50 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function marcarDiasCheios() {
-        fetch(`php/dias_ocupados.php?mes=${mesAtual}&ano=${anoAtual}`)
-            .then(res => res.json())
-            .then(data => {
-                const mensagem = document.getElementById('diacheio');
-                const diasCheios = data.dias_cheios || [];
-                diasCheios.forEach(dia => {
-                    const diaTd = document.getElementById(`${dia}`);
-                    if (diaTd) {
-                        diaTd.style.color = 'red';
-                        diaTd.style.pointerEvents = 'none';
-                        mensagem.textContent = 'Dia cheio';
-                    }
-                });
-            })
-            .catch(e => console.error('Erro no marcarDiasCheios:', e));
-    }
+    fetch(`../../php/agendamentos/dias_ocupados.php?mes=${mesAtual}&ano=${anoAtual}`)
+        .then(res => res.json())
+        .then(data => {
+            const diasCheios = data.dias_cheios || [];
+            const horariosOcupados = data.horarios_ocupados || [];
+
+            console.log("📅 Dias cheios recebidos:", diasCheios);
+            console.log("⏰ Horários ocupados recebidos:", horariosOcupados);
+
+            // Marcar horários ocupados como vermelhos
+            horariosOcupados.forEach(item => {
+            const horaFormatada = item.hora.substring(0, 5); // ex: "08:00:00" → "08:00"
+
+            document.querySelectorAll("#horarios td").forEach(td => {
+                if (td.textContent.trim() === horaFormatada) {
+                    td.style.backgroundColor = 'red';
+                    td.style.color = 'white';
+                }
+            });
+        });
+
+
+            // Marcar dias inteiros como vermelhos
+            diasCheios.forEach(dia => {
+                const el = document.getElementById(dia);
+                if (el) {
+                    el.style.backgroundColor = 'red';
+                    el.style.color = 'white';
+                }
+            });
+
+console.log("🔍 Comparando com td:", horaFormatada);
+document.querySelectorAll("#horarios td").forEach(td => {
+    console.log("📌 Td text:", td.textContent.trim());
+});
+
+
+        })
+        .catch(err => console.error("Erro ao buscar dias ocupados:", err));
+}
+
+
+
+
 
 
 function aplicarConfiguracoesMes() {
@@ -155,93 +183,56 @@ function aplicarConfiguracoesSemanas() {
     }
 }
 
-
-// function verificarHorarioSimples(servicoId, dataSelecionada) { 
-//     document.querySelectorAll('.hora-disponivel').forEach(td => {
-//         const hora = td.textContent.trim();
-
-//         const bodyData = `servico=${encodeURIComponent(servicoId)}&data=${encodeURIComponent(dataSelecionada)}&hora=${encodeURIComponent(hora)}&duracao=30`;
-        
-//         console.log("servicoId:", servicoId);
-//         console.log("dataSelecionada:", dataSelecionada);
-//         console.log("hora:", hora);
-//         console.log("bodyData:", bodyData);
-
-
-//         fetch('php/agendamento.php', {
-
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/x-www-form-urlencoded'
-//             },
-//             body: bodyData
-//         })
-//         .then(response => response.json())
-//         .then(data => {
-//             console.log("Resposta recebida:", data);
-//             if (data.disponivel === false) {
-//                 td.style.backgroundColor = 'red';
-//                 td.style.color = 'white';
-//             } else if (data.disponivel === true) {
-//                 td.style.backgroundColor = 'green';
-//                 td.style.color = 'white';
-//             }
-//         })
-//         .catch(error => {
-//             console.error('Erro ao verificar horário:', error);
-//         });
-//     });
-// }
-
-
-
-
-
-
     function criarTabelaCalendario(mes, ano) {
-        const tabela = document.getElementById('dataDisponiveis');
-        tabela.innerHTML = ''; // limpa o conteúdo da tabela
+    const tabela = document.getElementById('dataDisponiveis');
+    tabela.innerHTML = '';
 
-        // cria o thead com os nomes dos dias da semana
-        const thead = document.createElement('thead');
-        const trHead = document.createElement('tr');
-        const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
-        diasSemana.forEach(dia => {
-            const th = document.createElement('th');
-            th.textContent = dia;
-            trHead.appendChild(th);
-        });
-        thead.appendChild(trHead);
-        tabela.appendChild(thead);
+    const thead = document.createElement('thead');
+    const trHead = document.createElement('tr');
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+    diasSemana.forEach(dia => {
+        const th = document.createElement('th');
+        th.textContent = dia;
+        trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+    tabela.appendChild(thead);
 
-        const tbody = document.createElement('tbody');
-        const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
+    const tbody = document.createElement('tbody');
+    const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
+    const ultimoDia = new Date(ano, mes, 0).getDate();
 
-        const ultimoDia = new Date(ano, mes, 0).getDate();
+    let dia = 1;
+    for (let semana = 0; semana < 6; semana++) {
+        const tr = document.createElement('tr');
+        for (let coluna = 0; coluna < 7; coluna++) {
+            const td = document.createElement('td');
 
-        let dia = 1;
-        for (let semana = 0; semana < 6; semana++) {
-            const tr = document.createElement('tr');
-            for (let coluna = 0; coluna < 7; coluna++) {
-                const td = document.createElement('td');
-
-                if ((semana === 0 && coluna < primeiroDiaSemana) || dia > ultimoDia) {
-                    td.textContent = '';
-                    td.style.pointerEvents = 'auto'
-                } else {
-                    td.textContent = dia;
-                    td.id = `${dia}`;
-                    td.classList.add('data');
-                    dia++;
-                }
-                tr.appendChild(td);
+            if ((semana === 0 && coluna < primeiroDiaSemana) || dia > ultimoDia) {
+                td.textContent = '';
+            } else {
+                td.textContent = dia;
+                td.id = `${ano}-${mes.toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
+                td.classList.add('data');
+                td.dataset.mes = mes.toString().padStart(2, '0');
+                td.dataset.ano = ano.toString();
+                dia++;
             }
-            tbody.appendChild(tr);
-            if (dia > ultimoDia) break; 
-        }
 
-        tabela.appendChild(tbody);
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+        if (dia > ultimoDia) break;
     }
+
+    tabela.appendChild(tbody);
+
+    // ✅ Agora sim: só chama após os <td> estarem no DOM
+    marcarDiasIndisponiveis(mes.toString().padStart(2, '0'), ano.toString());
+}
+
+
+    
 
     criarTabelaCalendario(mesAtual, anoAtual);
     marcarDiasCheios();
@@ -269,6 +260,36 @@ function aplicarConfiguracoesSemanas() {
         ativarCliqueNosDias()    
      });
 });
+
+function marcarDiasIndisponiveis(mesVisivel, anoVisivel) {
+    fetch("dias_indisponiveis.php")
+        .then(res => res.json())
+        .then(datas => {
+            datas.forEach(data => {
+                const [ano, mes, dia] = data.split("-");
+                const idCompleto = `${ano}-${mes}-${dia}`;
+
+                if (mes !== mesVisivel || ano !== anoVisivel) return;
+
+                const td = document.getElementById(idCompleto);
+                if (td) {
+                    td.classList.add("desabilitado");
+                    td.style.backgroundColor = "yellow";
+                    td.style.pointerEvents = "none";
+                    td.style.opacity = "0.6";
+                }
+            });
+        })
+        .catch(err => {
+            console.error("Erro ao carregar dias indisponíveis:", err);
+        });
+}
+
+
+document.querySelectorAll("td.data").forEach(td => {
+    console.log(`${td.textContent} - ${td.dataset.dia}-${td.dataset.mes}-${td.dataset.ano}`);
+});
+
 
 // QUANTIDADE DE agendamentos
 const container = document.getElementById('agendamentos-container');
@@ -339,8 +360,6 @@ function ativarCliqueNosDias() {
             }
 
             const dia = td.textContent.padStart(2, '0');
-
-            // Usa o mês do <select>
             const mesSelecionado = document.getElementById('mesSelect').value.padStart(2, '0');
             const agora = new Date();
             const ano = agora.getFullYear(); // opcionalmente, você pode criar um select de ano também
@@ -361,7 +380,6 @@ function ativarCliqueNosDias() {
                 }
 
                 const selectServico = document.getElementById(`servico-${agendamentoAtivo}`);
-                const optionSelecionada = selectServico.options[selectServico.selectedIndex];
                 const servicoId = selectServico.value;
                 const tempoEntre = intervaloEntreHorarios[servicoId] || 60; // fallback pra evitar erro
 
@@ -439,5 +457,28 @@ function gerarHorariosComMinutos(inicio, fim, intervaloMinutos) {
 
 document.addEventListener('DOMContentLoaded', () => {
     ativarCliqueNosDias();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("dias_indisponiveis.php")
+        .then(res => res.json())
+        .then(datas => {
+           
+            datas.forEach(data => {
+                const [ano, mes, dia] = data.split("-");
+                const idDia = parseInt(dia, 10).toString(); // id do td
+
+                const td = document.getElementById(idDia);
+                if (td) {
+                    td.classList.add("desabilitado");
+                    td.style.backgroundColor = "yellow"; // pinta de amarelo
+                    td.style.pointerEvents = "none"; // desativa clique
+                    td.style.opacity = "0.6"; // aparência de desabilitado
+                }
+            });
+        })
+        .catch(err => {
+            console.error("Erro ao carregar dias indisponíveis:", err);
+        });
 });
 

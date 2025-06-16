@@ -7,36 +7,49 @@
 </head>
 <body>
 <?php
-include '../login_empresa/get_id.php';
-include '../conexao.php';
-require __DIR__ . '../../vendor/autoload.php';
+    //include 'restringir_agendamentos.php';
+    include '../login_empresa/get_id.php';
+    include '../conexao.php';
+    require __DIR__ . '../../vendor/autoload.php';
 
-use MercadoPago\SDK;
-use MercadoPago\Preference;
-use MercadoPago\Item;
+    use MercadoPago\SDK;
+    use MercadoPago\Preference;
+    use MercadoPago\Item;
 
-SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
-
-
-
-
-$configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
-$diaHoraDisponivel = $conn->query("SELECT dia hora FROM agendamento")->fetch_all(MYSQLI_ASSOC);
+    SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
 
 
-$nome       = $_POST["nome"] ?? '';
-$sobrenome  = $_POST["sobrenome"] ?? '';
-$nascimento = $_POST["nascimento"] ?? '';
-$email      = $_POST["email"] ?? '';
-$cpf        = $_POST["cpf"] ?? '';
-$cll        = $_POST["cll"] ?? '';
-$servico    = $_POST["servico"] ?? '';
-preg_match('/\d+/', $_POST["qtdagendamentos"], $match);
-$qtdagendamentos = (int)($match[0] ?? 1);
-$dia        = $_POST["dia"] ?? '';
-$hora       = $_POST["hora"] ?? '';
-$servico_id = isset($_POST['servico']) ? (int)$_POST['servico'] : null;
 
+
+    $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
+    $diaHoraDisponivel = $conn->query("SELECT dia hora FROM agendamento")->fetch_all(MYSQLI_ASSOC);
+
+
+    $nome       = $_POST["nome"] ?? '';
+    $sobrenome  = $_POST["sobrenome"] ?? '';
+    $nascimento = $_POST["nascimento"] ?? '';
+    $email      = $_POST["email"] ?? '';
+    $cpf        = $_POST["cpf"] ?? '';
+    $cll        = $_POST["cll"] ?? '';
+    $servico    = $_POST["servico"] ?? '';
+    preg_match('/\d+/', $_POST["qtdagendamentos"], $match);
+    $qtdagendamentos = (int)($match[0] ?? 1);
+    $dia        = $_POST["dia"] ?? '';
+    $hora       = $_POST["hora"] ?? '';
+    $servico_id = isset($_POST['servico']) ? (int)$_POST['servico'] : null;
+
+
+
+    // Obtemos a quantidade de funcionários do serviço
+    $stmt = $conn->prepare("SELECT quantidade_de_funcionarios FROM servico WHERE id = ?");
+    if (!$stmt) {
+        die("Erro no prepare (funcionários): " . $conn->error);
+    }
+    $stmt->bind_param("i", $servico);
+    $stmt->execute();
+    $stmt->bind_result($qtdFuncionarios);
+    $stmt->fetch();
+    $stmt->close();
 
 
 $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
@@ -75,109 +88,8 @@ if ($empresa_id && $verificaCpf->num_rows > 0) {
 $verificaCpf->close();
 
 
-
-// --- 2. Obter a quantidade de funcionários para o serviço ---
-$stmt = $conn->prepare("SELECT quantidade_de_funcionarios FROM servico WHERE id = ?");
-if (!$stmt) {
-    // Em produção, registre o erro em um log, não exiba diretamente ao usuário
-    error_log("Erro no prepare (funcionários): " . $conn->error);
-    echo "Erro interno ao buscar informações do serviço.";
-    $conn->close();
-    exit;
-}
-$stmt->bind_param("i", $servico_id); // Use $servico_id aqui, para consistência
-$stmt->execute();
-$stmt->bind_result($qtdFuncionarios);
-$stmt->fetch();
-$stmt->close();
-
-// Se o serviço não foi encontrado ou não tem funcionários definidos
-if (empty($qtdFuncionarios)) {
-    echo "Serviço inválido ou sem disponibilidade definida.";
-    $conn->close();
-    exit;
-}
-
-// --- 3. Contar agendamentos existentes para o dia/hora/serviço ---
-$stmt = $conn->prepare("SELECT COUNT(*) FROM agendamento WHERE dia = ? AND hora = ? AND servico_id = ?");
-if (!$stmt) {
-    // Em produção, registre o erro em um log
-    error_log("Erro no prepare (agendamentos): " . $conn->error);
-    echo "Erro interno ao verificar agendamentos.";
-    $conn->close();
-    exit;
-}
-$stmt->bind_param("ssi", $dia, $hora, $servico_id);
-if (!$stmt) {
-    // Em produção, registre o erro em um log
-    error_log("Erro no prepare (agendamentos): " . $conn->error);
-}
-$stmt->bind_result($qtdAgendadas);
-$stmt->fetch();
-$stmt->close();
-
-// --- 4. Verificar se o limite foi atingido ---
-if ($qtdAgendadas >= $qtdFuncionarios) {
-    echo "Horário indisponível. Já atingiu o limite de agendamentos para esse serviço.";
-    $conn->close();
-    exit;
-} else {
-    // Se chegou aqui, o horário está disponível!
-    // Você pode continuar com o processo de agendamento,
-    // como inserir os dados na tabela clientes.
-    echo "Horário disponível! Prossiga com o agendamento.";
-
-    // Exemplo: Inserir o agendamento (adapte conforme sua lógica de negócios)
-    // $stmt_insert = $conn->prepare("INSERT INTO clientes (dia, hora, servico_id, ...) VALUES (?, ?, ?, ...)");
-    // $stmt_insert->bind_param("ssi", $dia, $hora, $servico_id);
-    // $stmt_insert->execute();
-    // $stmt_insert->close();
-}
-
-
-
-
-
-
-
-
-
-//FLATA MARCAR AS HORAS DISONIVEIS DE ACORDO COM A SEMANA
-
-
-// // Obtemos a quantidade de funcionários do serviço
-// $stmt = $conn->prepare("SELECT quantidade_de_funcionarios FROM servico WHERE id = ?");
-// if (!$stmt) {
-//     die("Erro no prepare (funcionários): " . $conn->error);
-// }
-// $stmt->bind_param("i", $servico);
-// $stmt->execute();
-// $stmt->bind_result($qtdFuncionarios);
-// $stmt->fetch();
-// $stmt->close();
-
-// // Verificamos quantas pessoas já estão agendadas nesse dia/hora/serviço
-// $stmt = $conn->prepare("SELECT COUNT(*) FROM clientes WHERE dia = ? AND hora = ? AND servico_id = ?");
-// $servico_id = $_POST['servico_id'] ?? null;
-// if (!$stmt) {
-//     die("Erro no prepare (agendamentos): " . $conn->error);
-// }
-// $stmt->bind_param("ssi", $dia, $hora, $servico_id);
-// $stmt->execute();
-// $stmt->bind_result($qtdAgendadas);
-// $stmt->fetch();
-// $stmt->close();
-
-// // Verificamos se o limite foi atingido
-// if ($qtdAgendadas >= $qtdFuncionarios) {
-//     echo "Horário indisponível. Já atingiu o limite de agendamentos para esse serviço.";
-//     $conn->close();
-//     exit;
-// }
-
-
 $valor_total = 0;
-$qtdagendamentos = count($_POST['agendamentos']); // ou: count($servicos)
+$qtdagendamentos = count($_POST['agendamentos']);
 
 foreach ($_POST['agendamentos'] as $ag) {
     $servico_id = (int)$ag['servico_id'];
@@ -193,11 +105,124 @@ foreach ($_POST['agendamentos'] as $ag) {
 }
 
 
-$dias = $_POST['dia'];                 // array de datas
-$horas = $_POST['hora'];               // array de horários
-$servicos = $_POST['agendamentos'];    // array associativo
+$dias = $_POST['dia'];               
+$horas = $_POST['hora'];    
+$servicos = $_POST['agendamentos'];
 
-// Inserir pagamento
+// // Inserir pagamento
+// $pagamento = $conn->prepare(
+//     "INSERT INTO pagamento (empresa_id, qtdagendamentos, valor_pagar, status_pagamento) 
+//      VALUES (?, ?, ?, 'pendente')"
+// );
+// if (!$pagamento) {
+//     die("Erro ao preparar pagamento: " . $conn->error);
+// }
+// $pagamento->bind_param("iis", $empresa_id, $qtdagendamentos, $valor_total);
+// if (!$pagamento->execute()) {
+//     die("Erro ao executar pagamento: " . $pagamento->error);
+// }
+// $pagamento_id = $conn->insert_id;
+// $pagamento->close();
+
+// // Inserir cliente
+// $dadosPessoais = $conn->prepare(
+//     "INSERT INTO clientes (empresa_id, nome, sobrenome, nascimento, email, cpf, celular, pagamento_id) 
+//      VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+// );
+// if (!$dadosPessoais) {
+//     die("Erro ao preparar cliente: " . $conn->error);
+// }
+// $dadosPessoais->bind_param("issssssi", $empresa_id, $nome, $sobrenome, $nascimento, $email, $cpf, $cll, $pagamento_id);
+// if (!$dadosPessoais->execute()) {
+//     die("Erro ao executar cliente: " . $dadosPessoais->error);
+// }
+// $cliente_id = $conn->insert_id;
+// $dadosPessoais->close();
+
+// if (!$cliente_id) {
+//     die("Erro: cliente_id não foi gerado corretamente.");
+// }
+
+
+// // Inserir agendamentos com verificação de limite
+// foreach ($servicos as $index => $servicoData) {
+//     $servico_id = (int) $servicoData['servico_id'];
+//     $dia = htmlspecialchars($dias[$index], ENT_QUOTES, 'UTF-8');
+//     $hora = htmlspecialchars($horas[$index], ENT_QUOTES, 'UTF-8');
+
+//     // Obter quantidade de funcionários do serviço
+//     $stmt = $conn->prepare("SELECT quantidade_de_funcionarios FROM servico WHERE id = ?");
+//     $stmt->bind_param("i", $servico_id);
+//     $stmt->execute();
+//     $stmt->bind_result($qtdFuncionarios);
+//     $stmt->fetch();
+//     $stmt->close();
+
+//     // Contar agendamentos existentes nesse dia/hora/serviço
+//     $stmt = $conn->prepare("SELECT COUNT(*) FROM agendamento WHERE dia = ? AND hora = ? AND servico_id = ?");
+//     $stmt->bind_param("ssi", $dia, $hora, $servico_id);
+//     $stmt->execute();
+//     $stmt->bind_result($qtdAgendadas);
+//     $stmt->fetch();
+//     $stmt->close();
+
+//     // Se estiver cheio, cancelar o processo
+//     if ($qtdAgendadas >= $qtdFuncionarios) {
+//         echo "<p style='color:red;'>Horário $hora de $dia está indisponível para o serviço selecionado. Agendamento cancelado.</p>";
+//         $conn->close();
+//         exit;
+//     }
+
+//     // Se não estiver cheio, inserir normalmente
+//     $agendamento = $conn->prepare(
+//         "INSERT INTO agendamento (empresa_id, cliente_id, servico_id, dia, hora, pagamento_id) 
+//          VALUES (?, ?, ?, ?, ?, ?)"
+//     );
+//     if (!$agendamento) {
+//         die("Erro ao preparar agendamento: " . $conn->error);
+//     }
+
+//     $agendamento->bind_param("iiissi", $empresa_id, $cliente_id, $servico_id, $dia, $hora, $pagamento_id);
+//     if (!$agendamento->execute()) {
+//         die("Erro ao salvar agendamento: " . $agendamento->error);
+//     }
+//     $agendamento->close();
+
+    
+// }
+
+
+
+
+
+// 1. Verificação de todos os horários antes de inserir qualquer coisa
+foreach ($servicos as $index => $servicoData) {
+    $servico_id = (int) $servicoData['servico_id'];
+    $dia = htmlspecialchars($dias[$index], ENT_QUOTES, 'UTF-8');
+    $hora = htmlspecialchars($horas[$index], ENT_QUOTES, 'UTF-8');
+
+    $stmt = $conn->prepare("SELECT quantidade_de_funcionarios FROM servico WHERE id = ?");
+    $stmt->bind_param("i", $servico_id);
+    $stmt->execute();
+    $stmt->bind_result($qtdFuncionarios);
+    $stmt->fetch();
+    $stmt->close();
+
+    $stmt = $conn->prepare("SELECT COUNT(*) FROM agendamento WHERE dia = ? AND hora = ? AND servico_id = ?");
+    $stmt->bind_param("ssi", $dia, $hora, $servico_id);
+    $stmt->execute();
+    $stmt->bind_result($qtdAgendadas);
+    $stmt->fetch();
+    $stmt->close();
+
+    if ($qtdAgendadas >= $qtdFuncionarios) {
+        echo "<p style='color:red;'>Horário $hora de $dia está indisponível para o serviço selecionado. Agendamento cancelado.</p>";
+        $conn->close();
+        exit;  // cancela a execução antes de inserir pagamento/cliente/agendamento
+    }
+}
+
+// 2. Se chegou aqui, todos os horários estão disponíveis — inserir pagamento
 $pagamento = $conn->prepare(
     "INSERT INTO pagamento (empresa_id, qtdagendamentos, valor_pagar, status_pagamento) 
      VALUES (?, ?, ?, 'pendente')"
@@ -212,7 +237,7 @@ if (!$pagamento->execute()) {
 $pagamento_id = $conn->insert_id;
 $pagamento->close();
 
-// Inserir cliente
+// 3. Inserir cliente
 $dadosPessoais = $conn->prepare(
     "INSERT INTO clientes (empresa_id, nome, sobrenome, nascimento, email, cpf, celular, pagamento_id) 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
@@ -227,12 +252,11 @@ if (!$dadosPessoais->execute()) {
 $cliente_id = $conn->insert_id;
 $dadosPessoais->close();
 
-// Verificação: cliente_id está definido?
 if (!$cliente_id) {
     die("Erro: cliente_id não foi gerado corretamente.");
 }
 
-// Inserir agendamentos
+// 4. Inserir os agendamentos
 foreach ($servicos as $index => $servicoData) {
     $servico_id = (int) $servicoData['servico_id'];
     $dia = htmlspecialchars($dias[$index], ENT_QUOTES, 'UTF-8');
@@ -245,16 +269,18 @@ foreach ($servicos as $index => $servicoData) {
     if (!$agendamento) {
         die("Erro ao preparar agendamento: " . $conn->error);
     }
-
     $agendamento->bind_param("iiissi", $empresa_id, $cliente_id, $servico_id, $dia, $hora, $pagamento_id);
     if (!$agendamento->execute()) {
         die("Erro ao salvar agendamento: " . $agendamento->error);
     }
-    if ($agendamento) {
-        $agendamento->close();
-    }
-
+    $agendamento->close();
 }
+
+
+
+
+
+
 
 
 
@@ -268,7 +294,7 @@ $preference = new Preference();
 $preference->items = [$item];
 $preference->external_reference = $pagamento_id;
 
-$base_url = "https://fc3d-2804-7f0-b7c2-9926-48a7-f8a7-cb0a-8851.ngrok-free.app/wesley/pages";
+$base_url = "https://b4af-2804-7f0-b7c2-9926-8d82-ff41-9377-455a.ngrok-free.app/wesley/pages";
 
 $preference->back_urls = [
     "success" => $base_url . "/sucesso.html",

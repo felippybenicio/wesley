@@ -7,7 +7,7 @@ if (!isset($_SESSION['empresa_id'])) {
     header("Location: ../../pages/login_empresa/tela_login.php");
     exit();
 }
-
+ 
 $empresa_id = $_SESSION['empresa_id'];
 
 
@@ -36,9 +36,6 @@ foreach ($configs as $config) {
     $tempoentrecessao[$idServico] = $duracao + $intervalo;
 }
 
-
-
-
 // Pega horários
 $stmt = $conn->prepare("SELECT * FROM horario_config WHERE empresa_id = ?");
 $stmt->bind_param("i", $empresa_id);
@@ -61,11 +58,11 @@ function timeToMinutes($timeStr) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agendamento</title>
-    <link rel="stylesheet" href="estilo/style.css">
-
+    
 </head>
 <body>
     <a href="../settings/configuracao.php">configuração</a>
+    <a href="../tabela_clientes/clientes_agendados.php">agendamentos de clientes</a>
     <h1>ola seja bem vindo</h1>
     <p>como podemos ajudar?</p>
 
@@ -114,7 +111,7 @@ function timeToMinutes($timeStr) {
                         $stmt->fetch();
                         $stmt->close();
                     ?>
-                    <input type="number" name="qtdagendamentos" id="qtdagendamentos" value="1" max="<?= htmlspecialchars($agendamentosPorClientes) ?>">
+                    <input type="number" name="qtdagendamentos" id="qtdagendamentos" value="1" min="1" max="<?= htmlspecialchars($agendamentosPorClientes) ?>">
                 </div>
                 <div name="servico" id="servico"></div>
 
