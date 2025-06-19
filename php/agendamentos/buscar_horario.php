@@ -2,7 +2,6 @@
 include '../login_empresa/get_id.php';
 include '../conexao.php';
 
-
 if (!$empresa_id || !isset($_POST['dataSelecionada'])) {
     echo json_encode(['erro' => 'Faltam dados']);
     exit;

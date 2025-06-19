@@ -34,51 +34,91 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function marcarDiasCheios() {
+
+for (let i = 0; i < 5; i++) {
+    const selectServico = document.getElementById(`servico-${i}`);
+
+    if (!selectServico) continue; // Pula se não existir esse select
+
+    selectServico.addEventListener('change', () => {
+        marcarDiasCheios(selectServico.value, i);
+    });
+
+    // Chamada inicial se tiver um valor pré-selecionado
+    if (selectServico.value) {
+        marcarDiasCheios(selectServico.value, i);
+    }
+}
+
+function marcarDiasCheios(servicoSelecionado, index) {
+    if (!servicoSelecionado) {
+        console.warn("Serviço selecionado inválido. Abortando marcação.");
+        return;
+    }
+
     fetch(`../../php/agendamentos/dias_ocupados.php?mes=${mesAtual}&ano=${anoAtual}`)
         .then(res => res.json())
         .then(data => {
-            const diasCheios = data.dias_cheios || [];
-            const horariosOcupados = data.horarios_ocupados || [];
+            const diasCheios = data.dias_cheios || {};
+            const horariosOcupados = data.horarios_ocupados || {};
 
-            console.log("📅 Dias cheios recebidos:", diasCheios);
+            console.log(`📅 Dias cheios recebidos para servico-${index}:`, diasCheios);
             console.log("⏰ Horários ocupados recebidos:", horariosOcupados);
 
-            // Marcar horários ocupados como vermelhos
-            horariosOcupados.forEach(item => {
-            const horaFormatada = item.hora.substring(0, 5); // ex: "08:00:00" → "08:00"
-
-            document.querySelectorAll("#horarios td").forEach(td => {
-                if (td.textContent.trim() === horaFormatada) {
-                    td.style.backgroundColor = 'red';
-                    td.style.color = 'white';
-                }
-            });
-        });
-
-
-            // Marcar dias inteiros como vermelhos
-            diasCheios.forEach(dia => {
+            // Limpar todos os dias previamente marcados de qualquer serviço
+            Object.values(diasCheios).flat().forEach(dia => {
                 const el = document.getElementById(dia);
                 if (el) {
-                    el.style.backgroundColor = 'red';
-                    el.style.color = 'white';
+                    el.style.backgroundColor = '';
+                    el.style.color = '';
                 }
             });
 
-console.log("🔍 Comparando com td:", horaFormatada);
-document.querySelectorAll("#horarios td").forEach(td => {
-    console.log("📌 Td text:", td.textContent.trim());
-});
+            // Marcar dias cheios do serviço selecionado
+            if (diasCheios[servicoSelecionado]) {
+                diasCheios[servicoSelecionado].forEach(dia => {
+                    const el = document.getElementById(dia);
+                    if (el) {
+                        el.style.backgroundColor = 'red';
+                        el.style.color = 'white';
+                    }
+                });
+            } else {
+                console.warn(`Nenhum dia cheio para o serviço ${servicoSelecionado}`);
+            } 
 
+            // Marcar horários ocupados (em vermelho)
+// if (horariosOcupados[servicoSelecionado]) {
+//     const inputData = document.getElementById(`data-${index}`);
+//     if (!inputData) {
+//         console.warn(`Elemento data-${index} não encontrado.`);
+//         return;
+//     }
+
+//     const dataSelecionada = inputData.value;
+//     console.log("🔎 Data selecionada:", dataSelecionada);
+
+//     horariosOcupados[servicoSelecionado].forEach(entry => {
+//         console.log("⏰ Verificando horário:", entry);
+
+//         if (entry.dia === dataSelecionada) {
+//             const horaOcupada = entry.hora;
+
+//             document.querySelectorAll("#horarios tbody td").forEach(td => {
+//                 console.log("🔘 Comparando:", td.textContent, horaOcupada);
+//                 if (td.textContent.trim() === horaOcupada.trim()) {
+//                     td.style.backgroundColor = "red";
+//                     td.style.color = "white";
+//                     td.style.pointerEvents = "none";
+//                 }
+//             });
+//         }
+//     });
+// }
 
         })
         .catch(err => console.error("Erro ao buscar dias ocupados:", err));
 }
-
-
-
-
 
 
 function aplicarConfiguracoesMes() {
@@ -154,7 +194,7 @@ function aplicarConfiguracoesSemanas() {
     
     function dataDoAgendamento() {
     const dias = {};
-    const servicoId = document.getElementById("servico").value;
+    
 
     for (let i = 1; i <= 31; i++) {
         const dia = document.getElementById(`${i}`);
@@ -229,6 +269,12 @@ function aplicarConfiguracoesSemanas() {
 
     // ✅ Agora sim: só chama após os <td> estarem no DOM
     marcarDiasIndisponiveis(mes.toString().padStart(2, '0'), ano.toString());
+    // Obtem o serviço selecionado atual do primeiro select (ou o que estiver em uso)
+    const selectServico = document.getElementById('servico-0');
+    if (selectServico) {
+        marcarDiasCheios(selectServico.value, 0);  // ou o índice real usado
+    }
+
 }
 
 
@@ -348,6 +394,7 @@ qtdSelect.addEventListener('change', function () {
 });
 
 qtdSelect.dispatchEvent(new Event('change'));
+
 
 function ativarCliqueNosDias() {
     const dias = document.querySelectorAll('.data');

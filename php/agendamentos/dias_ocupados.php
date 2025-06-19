@@ -1,53 +1,45 @@
 <?php
-    include '../conexao.php';
+include '../conexao.php';
 include '../login_empresa/get_id.php';
 
-$mes = $_GET['mes'] ?? date('m');
-$ano = $_GET['ano'] ?? date('Y');
+$servico_id_filtro = isset($_GET['servico_id']) ? intval($_GET['servico_id']) : null;
 
-// 1. Buscar horários da tabela servico (duração e intervalo)
+// Buscar serviços com duração e intervalo
 $servicoQuery = $conn->prepare("SELECT id, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico FROM servico WHERE empresa_id = ?");
 $servicoQuery->bind_param("i", $empresa_id);
 $servicoQuery->execute();
 $servicoResult = $servicoQuery->get_result();
 
 $limites = [];
-$menorIntervalo = null;
+$duracoes = [];
+$intervalos = [];
+
 function timeToMinutes($time) {
-    sscanf($time, "%d:%d:%d", $hours, $minutes, $seconds);
-    return $hours * 60 + $minutes + round($seconds / 60);
+    sscanf($time, "%d:%d:%d", $h, $m, $s);
+    return $h * 60 + $m + round($s / 60);
 }
 
 while ($row = $servicoResult->fetch_assoc()) {
-    $limites[$row['id']] = (int)$row['quantidade_de_funcionarios'];
-
-    $duracao = timeToMinutes($row['duracao_servico']);
-    $intervaloServico = timeToMinutes($row['intervalo_entre_servico']);
-    $total = $duracao + $intervaloServico;
-
-    error_log("Serviço {$row['id']}: duração = $duracao minutos, intervalo = $intervaloServico minutos, total = $total minutos");
-
-    if ($menorIntervalo === null || $total < $menorIntervalo) {
-        $menorIntervalo = $total;
-    }
+    $id = $row['id'];
+    $limites[$id] = (int)$row['quantidade_de_funcionarios'];
+    $duracoes[$id] = $row['duracao_servico'];
+    $intervalos[$id] = $row['intervalo_entre_servico'];
 }
 
+// Buscar todos os agendamentos (remover filtro por mês)
+$sqlAg = "SELECT servico_id, dia, hora FROM agendamento WHERE empresa_id = ?";
+$stmtAg = $conn->prepare($sqlAg);
+$stmtAg->bind_param("i", $empresa_id);
+$stmtAg->execute();
+$resultAg = $stmtAg->get_result();
 
-error_log("Menor intervalo calculado: $menorIntervalo");
-
-
-$intervalo = $menorIntervalo ?? 60;
-
-
-
-// 2. Buscar horário da semana
-$sqlHorario = "SELECT inicio_servico, termino_servico FROM horario_config 
-               WHERE empresa_id = ? AND semana_ou_data = '1' LIMIT 1"; // exemplo: segunda-feira
-$stmtHorario = $conn->prepare($sqlHorario);
-$stmtHorario->bind_param("i", $empresa_id);
-$stmtHorario->execute();
-$resultHorario = $stmtHorario->get_result()->fetch_assoc();
-
+$agendamentos = [];
+while ($row = $resultAg->fetch_assoc()) {
+    $dia = $row['dia'];
+    $hora = $row['hora'];
+    $servico = $row['servico_id'];
+    $agendamentos[$dia][$hora][$servico][] = true;
+}
 
 function gerarHorarios($inicio, $fim, $intervaloMinutos) {
     $horarios = [];
@@ -56,125 +48,79 @@ function gerarHorarios($inicio, $fim, $intervaloMinutos) {
 
     while ($start + ($intervaloMinutos * 60) <= $end) {
         $horarios[] = date('H:i', $start);
-        $start += $intervaloMinutos * 60;  // aqui o incremento deve ser em segundos
+        $start += $intervaloMinutos * 60;
     }
 
     return $horarios;
 }
 
-
 function buscarHorario($conn, $empresa_id, $data) {
-    // 1. Tenta buscar por data específica
     $sql = "SELECT inicio_servico, termino_servico FROM horario_config 
             WHERE empresa_id = ? AND semana_ou_data = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("is", $empresa_id, $data);
     $stmt->execute();
-    $resultado = $stmt->get_result();
-    if ($row = $resultado->fetch_assoc()) {
-        return $row;
-    }
+    $res = $stmt->get_result();
+    if ($row = $res->fetch_assoc()) return $row;
 
-    // 2. Se não encontrou, busca pelo dia da semana
-    $diaSemana = date('w', strtotime($data)); // 0 (domingo) até 6 (sábado)
+    $diaSemana = date('w', strtotime($data));
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("is", $empresa_id, $diaSemana);
     $stmt->execute();
-    $resultado = $stmt->get_result();
-    if ($row = $resultado->fetch_assoc()) {
-        return $row;
-    }
+    $res = $stmt->get_result();
+    if ($row = $res->fetch_assoc()) return $row;
 
-    // 3. Se ainda não encontrou, retorna horário padrão
     return ['inicio_servico' => '08:00', 'termino_servico' => '18:00'];
 }
 
-
-// 4. Verificar dias e horários cheios
+// Dias cheios
 $dias_cheios = [];
 $horarios_ocupados = [];
-// Buscar todos os agendamentos do mês
-$sql = "SELECT dia, hora, servico_id FROM agendamento 
-        WHERE empresa_id = ? AND MONTH(dia) = ? AND YEAR(dia) = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("iii", $empresa_id, $mes, $ano);
-$stmt->execute();
-$result = $stmt->get_result();
-
-$agendamentos = [];
-while ($row = $result->fetch_assoc()) {
-    $dia = $row['dia'];
-    $hora = substr($row['hora'], 0, 5); // formata para H:i
-    $servico_id = $row['servico_id'];
-
-    $agendamentos[$dia][$hora][$servico_id][] = true;
-}
 
 foreach ($agendamentos as $dia => $horas) {
-    
-    $horariosDoDia = buscarHorario($conn, $empresa_id, $dia);
-    $inicio = $horariosDoDia['inicio_servico'];
-    $fim = $horariosDoDia['termino_servico'];
+    foreach ($limites as $servico_id => $limite) {
+        // Buscar horário de trabalho para esse dia
+        $horario = buscarHorario($conn, $empresa_id, $dia);
+        $inicio = $horario['inicio_servico'];
+        $termino = $horario['termino_servico'];
 
-    if ($intervalo <= 0) {
-        continue;
-    }
+        $duracaoMin = timeToMinutes($duracoes[$servico_id] ?? '01:00');
+        $intervaloMin = timeToMinutes($intervalos[$servico_id] ?? '00:00');
+        $passo = $duracaoMin + $intervaloMin;
 
-    $horariosPossiveis = gerarHorarios($inicio, $fim, $intervalo);
-    if (!is_array($horariosPossiveis) || count($horariosPossiveis) === 0) {
-        continue;
-    }
+        $horarios_possiveis = gerarHorarios($inicio, $termino, $passo);
+        $total = count($horarios_possiveis);
+        $cheios = 0;
 
-    if (count($horariosPossiveis) > 200) {
-        $horariosPossiveis = array_slice($horariosPossiveis, 0, 200);
-    }
+        foreach ($horarios_possiveis as $hora) {
+            $hora_completa = $hora . ":00";
+            $ocupados = isset($agendamentos[$dia][$hora_completa][$servico_id]) ? count($agendamentos[$dia][$hora_completa][$servico_id]) : 0;
 
-    $horariosNoDia = []; // <- MOVER PRA CÁ!!
-
-    foreach ($horas as $hora => $servicos) {
-        $horaLotada = false;
-
-        foreach ($servicos as $servico_id => $agds) {
-            $qtd = count($agds);
-            $limite = $limites[$servico_id] ?? PHP_INT_MAX;
-
-            if ($qtd >= $limite) {
-                $horaLotada = true;
-                break;
+            if ($ocupados >= $limite) {
+                $cheios++;
+                $horarios_ocupados[$servico_id][] = [
+                    'dia' => $dia,
+                    'hora' => substr($hora, 0, 5)
+                ];
             }
         }
-
-        if ($horaLotada) {
-            $horariosNoDia[$hora] = true;
-            $horarios_ocupados[] = ['dia' => $dia, 'hora' => $hora];
+        
+        if ($cheios >= $total && $total > 0) {
+            $dias_cheios[$servico_id][] = $dia;
         }
-    }
-
-    $todasOcupadas = true;
-    foreach ($horariosPossiveis as $horaPossivel) {
-        if (!isset($horariosNoDia[$horaPossivel])) {
-            $todasOcupadas = false;
-            break;
-        }
-    }
-
-    if ($todasOcupadas) {
-        $dias_cheios[] = $dia;
     }
 }
 
 
-// 5. Retornar JSON
+// Remover duplicatas
+foreach ($dias_cheios as $servico_id => $dias) {
+    $dias_cheios[$servico_id] = array_values(array_unique($dias));
+}
+
+header('Content-Type: application/json');
 echo json_encode([
     'dias_cheios' => $dias_cheios,
     'horarios_ocupados' => $horarios_ocupados
 ]);
-if (strpos($dia, '2025-06-03') !== false) {
-    echo "<pre>";
-    echo "Horários possíveis em $dia: " . implode(', ', $horariosPossiveis) . "\n";
-    echo "Horários ocupados em $dia: " . implode(', ', array_keys($horariosNoDia)) . "\n";
-    echo "</pre>";
-}
-
 
 ?>
