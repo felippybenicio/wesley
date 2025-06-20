@@ -10,7 +10,7 @@ if (!$id || $presenca !== 'sim') {
     exit;
 }
 
-$sql = "UPDATE agendamentos SET ja_atendido = 'sim' WHERE id = ? AND empresa_id = ?";
+$sql = "UPDATE agendamento SET ja_atendido = 'sim' WHERE id = ? AND empresa_id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $id, $empresa_id);
 $stmt->execute();

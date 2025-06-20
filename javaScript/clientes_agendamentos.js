@@ -1,90 +1,60 @@
 function normalizarTexto(texto) {
-  return texto
-    .toLowerCase()
-    .replace(/✅|❌|⏳/g, '')         
-    .normalize("NFD")               
-    .replace(/[\u0300-\u036f]/g, '') 
-    .trim();
+    return texto
+        .toLowerCase()
+        .replace(/✅|❌|⏳/g, '')
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
 }
 
 document.getElementById('filtro-agendamentos').addEventListener('change', function () {
     const filtro = this.value;
-    const linhas = Array.from(document.querySelectorAll('table tbody tr'));
+    const todasTabelas = document.querySelectorAll('body > table'); // cada tabela é um cliente
+    todasTabelas.forEach(tabela => {
+        let mostrarCliente = false;
+        const linhas = tabela.querySelectorAll('tr');
+        
+        linhas.forEach((linha, i) => {
+            const colunas = linha.querySelectorAll('td');
 
-    const clientesMap = {};
-    let clienteAtualId = null;
+            // Detectar linhas de agendamento (devem ter status na coluna 5)
+            if (colunas.length >= 6) {
+                const statusPagamento = tabela.querySelector("td:nth-child(9)")?.textContent?.toLowerCase() || "";
+                const textoStatus = colunas[5]?.childNodes[0]?.textContent || "";
+                const statusAtendimento = normalizarTexto(textoStatus);
 
-    linhas.forEach(linha => {
-        if (linha.classList.contains('cabecalho-cliente') || linha.classList.contains('cabecalho-agendamento')) {
-            return;
-        }
+                let mostrar = false;
 
-        const colunas = linha.querySelectorAll('td');
+                switch (filtro) {
+                    case 'todos':
+                        mostrar = true;
+                        break;
+                    case 'pagos':
+                        mostrar = statusPagamento === 'pago';
+                        break;
+                    case 'nao-pagos':
+                        mostrar = statusPagamento !== 'pago';
+                        break;
+                    case 'compareceu':
+                        mostrar = statusAtendimento === 'atendido';
+                        break;
+                    case 'nao-compareceu':
+                        mostrar = statusAtendimento === 'nao atendido';
+                        break;
+                    case 'agendado':
+                        mostrar = statusAtendimento === 'agendado';
+                        break;
+                }
 
-        if (colunas.length === 10) {
-            clienteAtualId = colunas[0].textContent.trim();
-            if (!clientesMap[clienteAtualId]) {
-                clientesMap[clienteAtualId] = {
-                    clienteLinha: linha,
-                    agendamentoLinhas: []
-                };
-            }
-        } else {
-            if (clienteAtualId && clientesMap[clienteAtualId]) {
-                clientesMap[clienteAtualId].agendamentoLinhas.push(linha);
-            }
-        }
-    });
+                linha.style.display = mostrar ? '' : 'none';
 
-    Object.entries(clientesMap).forEach(([clienteId, dadosCliente]) => {
-        const { clienteLinha, agendamentoLinhas } = dadosCliente;
-        const colunasCliente = clienteLinha.querySelectorAll('td');
-        const statusPagamento = colunasCliente[8].textContent.trim().toLowerCase();
-
-        let algumAgendamentoVisivel = false;
-
-        agendamentoLinhas.forEach(linhaAg => {
-            const colunasAg = linhaAg.querySelectorAll('td');
-            let statusAtendimento = normalizarTexto(colunasAg[5]?.textContent || '');
-
-            let mostrar = false;
-
-            switch(filtro) {
-                case 'todos':
-                    mostrar = true;
-                    break;
-                case 'pagos':
-                    mostrar = statusPagamento === 'pago';
-                    break;
-                case 'nao-pagos':
-                    mostrar = statusPagamento !== 'pago';
-                    break;
-                case 'compareceu':
-                    mostrar = statusAtendimento === 'atendido';
-                    break;
-                case 'nao-compareceu':
-                    mostrar = statusAtendimento === 'nao atendido';
-                    break;
-                case 'em-espera':
-                    mostrar = statusAtendimento === 'em espera';
-                    break;
-            }
-
-            linhaAg.style.display = mostrar ? '' : 'none';
-
-            if (mostrar) {
-                algumAgendamentoVisivel = true;
+                if (mostrar) {
+                    mostrarCliente = true;
+                }
             }
         });
 
-        const displayCliente = algumAgendamentoVisivel ? '' : 'none';
-        clienteLinha.style.display = displayCliente;
-
-        const cabecalhoCliente = document.getElementById('cabecalho-cliente-' + clienteId);
-        const cabecalhoAgendamento = document.getElementById('cabecalho-agendamento-' + clienteId);
-
-        if (cabecalhoCliente) cabecalhoCliente.style.display = displayCliente;
-        if (cabecalhoAgendamento) cabecalhoAgendamento.style.display = displayCliente;
+        tabela.style.display = mostrarCliente ? '' : 'none';
     });
 });
 
@@ -95,78 +65,40 @@ document.getElementById('filtro-agendamentos').addEventListener('change', functi
 
 function executarPesquisa() {
     const termo = document.getElementById('pesquisa-geral').value.trim().toLowerCase();
-    const linhas = Array.from(document.querySelectorAll('table tbody tr'));
-    
-    // Agrupar linhas por cliente
-    const clientesMap = {};
-    let clienteAtualId = null;
+    const tabelasClientes = document.querySelectorAll('body > table'); // cada tabela é um cliente
 
-    linhas.forEach(linha => {
-        if (linha.classList.contains('cabecalho-cliente') || linha.classList.contains('cabecalho-agendamento')) {
-            return;
-        }
+    tabelasClientes.forEach(tabela => {
+        let achouNoCliente = false;
+        let achouNoAgendamento = false;
 
-        const colunas = linha.querySelectorAll('td');
+        const linhas = tabela.querySelectorAll('tr');
 
-        if (colunas.length === 10) {
-            clienteAtualId = colunas[0].textContent.trim();
-            if (!clientesMap[clienteAtualId]) {
-                clientesMap[clienteAtualId] = {
-                    clienteLinha: linha,
-                    agendamentoLinhas: [],
-                    achouNoCliente: false,
-                    achouNoAgendamento: false
-                };
+        linhas.forEach(linha => {
+            if (linha.classList.contains('cabecalho-cliente') || linha.classList.contains('cabecalho-agendamento')) {
+                return; // pula cabeçalhos
             }
-            
-            const textoCliente = linha.textContent.toLowerCase();
-            if (textoCliente.includes(termo)) {
-                clientesMap[clienteAtualId].achouNoCliente = true;
+            const texto = linha.textContent.toLowerCase();
+
+            // Para a linha do cliente (com vários <td>), se conter termo
+            if (!achouNoCliente && texto.includes(termo)) {
+                achouNoCliente = true;
             }
 
-        } else {
-            if (clienteAtualId && clientesMap[clienteAtualId]) {
-                clientesMap[clienteAtualId].agendamentoLinhas.push(linha);
-                const textoAgendamento = linha.textContent.toLowerCase();
-                if (textoAgendamento.includes(termo)) {
-                    clientesMap[clienteAtualId].achouNoAgendamento = true;
-                }
+            // Para linhas que tem menos td (agendamentos), se conter termo
+            if (!achouNoAgendamento && texto.includes(termo)) {
+                achouNoAgendamento = true;
             }
-        }
-    });
-
-    Object.entries(clientesMap).forEach(([clienteId, dadosCliente]) => {
-        const { clienteLinha, agendamentoLinhas, achouNoCliente, achouNoAgendamento } = dadosCliente;
-        const mostrar = termo === '' || achouNoCliente || achouNoAgendamento;
-
-        clienteLinha.style.display = mostrar ? '' : 'none';
-
-        agendamentoLinhas.forEach(linhaAg => {
-            linhaAg.style.display = mostrar ? '' : 'none';
         });
 
-        const cabecalhoCliente = document.getElementById('cabecalho-cliente-' + clienteId);
-        const cabecalhoAgendamento = document.getElementById('cabecalho-agendamento-' + clienteId);
-
-        if (cabecalhoCliente) cabecalhoCliente.style.display = mostrar ? '' : 'none';
-        if (cabecalhoAgendamento) cabecalhoAgendamento.style.display = mostrar ? '' : 'none';
+        const mostrar = termo === '' || achouNoCliente || achouNoAgendamento;
+        tabela.style.display = mostrar ? '' : 'none';
     });
 }
 
-// Aqui só adiciona o evento de clique no botão da lupa
+// Evento no botão lupa
 document.getElementById('botao-pesquisa').addEventListener('click', () => {
-  executarPesquisa();
+    executarPesquisa();
 });
-
-
-
-
-
-
-
-
-
-
 
 
 document.querySelectorAll(".btn-salvar-comentario").forEach(btn => {

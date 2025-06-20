@@ -27,7 +27,9 @@ while ($row = $servicoResult->fetch_assoc()) {
 }
 
 // Buscar todos os agendamentos (remover filtro por mês)
-$sqlAg = "SELECT servico_id, dia, hora FROM agendamento WHERE empresa_id = ?";
+$sqlAg = "SELECT servico_id, dia, hora FROM agendamento 
+          WHERE empresa_id = ? 
+          AND (ja_atendido IS NULL OR ja_atendido = '')";
 $stmtAg = $conn->prepare($sqlAg);
 $stmtAg->bind_param("i", $empresa_id);
 $stmtAg->execute();

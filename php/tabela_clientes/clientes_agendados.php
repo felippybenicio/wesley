@@ -3,7 +3,7 @@ include '../login_empresa/get_id.php';
 include '../conexao.php';
 
 // 1) Buscar clientes
-$stmtClientes = $conn->prepare("SELECT id, empresa_id, nome, sobrenome, cpf, nascimento, email, celular, pagamento_id FROM clientes WHERE empresa_id = ?");
+$stmtClientes = $conn->prepare("SELECT id, empresa_id, nome, sobrenome, cpf, nascimento, email, celular, pagamento_id, cadastrado_em FROM clientes WHERE empresa_id = ?");
 
 if (!$stmtClientes) {
     die("Erro no prepare dos clientes: " . $conn->error);
@@ -74,7 +74,7 @@ while ($row = $resultServ->fetch_assoc()) {
         <option value="nao-pagos">Não pagos</option>
         <option value="compareceu">Compareceram</option>
         <option value="nao-compareceu">Não compareceram</option>
-        <option value="Em espera">Em espera</option>
+        <option value="agendado">Agendado</option>
     </select>
     <input type="text" id="pesquisa-geral" placeholder="Pesquisar por qualquer informação..." style="margin-bottom:10px; padding:5px; width: 300px;">
     <button id="botao-pesquisa" style="padding: 5px 10px; cursor: pointer;">🔍</button>
@@ -91,115 +91,111 @@ while ($row = $resultServ->fetch_assoc()) {
     }
 
     // Percorrer clientes com seus agendamentos
-    foreach ($agendamentos_por_cliente as $cliente_id => $agendamentos) {
-        $cliente = $clientes[$cliente_id] ?? null;
+foreach ($agendamentos_por_cliente as $cliente_id => $agendamentos) {
+    $cliente = $clientes[$cliente_id] ?? null;
+    if (!$cliente) continue;
 
-        if ($cliente) {
-            $pagamento_id = $cliente['pagamento_id'];
-            $pagamento = $pagamentos[$pagamento_id] ?? null;
+    echo "<table>";
+    echo "<tr>
+            <th>Cliente ID</th>
+            <th>Nome</th>
+            <th>Sobrenome</th>
+            <th>CPF</th>
+            <th>Nascimento</th>
+            <th>Email</th>
+            <th>Celular</th>
+            <th>Dia cadastrado</th>
+          </tr>";
 
-            // Linha com dados do cliente e pagamento
-            echo "
-            <table>      
-                <tbody>  
-                    <tr>
-                        <tr id='cabecalho-cliente-{$cliente['id']}' class='cabecalho-cliente'>
-                            <th>Cliente ID</th>
-                            <th>Nome</th>
-                            <th>Sobrenome</th>
-                            <th>CPF</th>
-                            <th>Nascimento</th>
-                            <th>E-mail</th>
-                            <th>Celular</th>
-                            <th>Valor a Pagar (Pagamento)</th>
-                            <th>Status Pagamento</th>
-                            <th>Pagamento Criado Em</th>
-                        </tr>
-            ";
-                        echo "<td>" . htmlspecialchars($cliente['id']) . "</td>";
-                        echo "<td>" . htmlspecialchars($cliente['nome']) . "</td>";
-                        echo "<td>" . htmlspecialchars($cliente['sobrenome']) . "</td>";
-                        echo "<td>" . htmlspecialchars($cliente['cpf']) . "</td>";
-                        echo "<td>" . htmlspecialchars($cliente['nascimento']) . "</td>";
-                        echo "<td>" . htmlspecialchars($cliente['email']) . "</td>";
-                        echo "<td>" . htmlspecialchars($cliente['celular']) . "</td>";
+    echo "<tr>
+            <td>{$cliente['id']}</td>
+            <td>{$cliente['nome']}</td>
+            <td>{$cliente['sobrenome']}</td>
+            <td>{$cliente['cpf']}</td>
+            <td>{$cliente['nascimento']}</td>
+            <td>{$cliente['email']}</td>
+            <td>{$cliente['celular']}</td>
+            <td>{$cliente['cadastrado_em']}</td>
+          </tr>";
 
-                        if ($pagamento) {
-                            echo "<td>R$ " . number_format($pagamento['valor_pagar'], 2, ',', '.') . "</td>";
-                            echo "<td>" . htmlspecialchars($pagamento['status_pagamento']) . "</td>";
-                            echo "<td>" . htmlspecialchars($pagamento['created_at']) . "</td>";
-                        } else {
-                            echo "<td colspan='3'>Pagamento não encontrado</td>";
-                        }
-                    echo "</tr>";
-
-                        // Linhas com os agendamentos (abaixo do cliente)
-                        
-                            echo "<tr id='cabecalho-agendamento-{$cliente['id']}' class='cabecalho-agendamento'>
-                                <th>Tipo do Serviço</th>
-                                <th>Dia</th>
-                                <th>Hora</th>
-                                <th>Valor</th>
-                                <th>Duração</th>
-                                <th>Status de atendimento</th>
-                                <th class='coluna-motivo'>Motivo de não atendimento</th>
-                            </tr>";
-
-                            foreach ($agendamentos as $ag) {
-                                $servico = $servicos[$ag['servico_id']] ?? null;
-
-                    echo "<tr>";
-                                echo "<td>" . htmlspecialchars($servico['tipo_servico']) . "</td>";
-                                echo "<td>" . htmlspecialchars($ag['dia']) . "</td>";
-                                echo "<td>" . htmlspecialchars($ag['hora']) . "</td>";
-
-                               if ($servico) {
-    echo "<td>R$ " . number_format($servico['valor'], 2, ',', '.') . "</td>";
-    echo "<td>" . htmlspecialchars($servico['duracao_servico']) . " min</td>";
-
-    // Coluna de status de atendimento
-    echo "<td>";
-    $foiAtendido = $ag['ja_atendido'] === 'sim';
-    $naoAtendido = $ag['ja_atendido'] === 'nao';
-    $pendente = !$foiAtendido && !$naoAtendido; // NULL ou outro valor
-
-    if ($ag['ja_atendido'] === 'sim') {
-        echo "✅ ATENDIDO";
-    } elseif ($ag['ja_atendido'] === 'nao') {
-        echo "❌ NÃO ATENDIDO";
-    } else {
-        echo "⏳ EM ESPERA";
-        echo "<button class='btn-presenca' data-id='{$ag['id']}' data-presenca='sim'>✅ Atendido</button>";
-    }
-    echo "</td>";
-
-    // Coluna motivo da falta
-    echo "<td class='motivo-falta' data-id='{$ag['id']}'>";
-
-    $motivo = htmlspecialchars($ag['motivo_falta'] ?? '');
-
-    if ($foiAtendido) {
-        echo "-";
-    } elseif ($naoAtendido && !empty($motivo)) {
-        echo "<p>$motivo</p>";
-    } elseif ($pendente) {
-        // ainda em espera, mostra textarea
-        echo "<textarea placeholder='Motivo da falta...' data-id='{$ag['id']}' class='comentario-falta'></textarea>";
-        echo "<button class='btn-salvar-comentario' data-id='{$ag['id']}'>Salvar Motivo</button>";
+    // Agora agrupa os agendamentos por pagamento_id
+    $agendamentosPorPagamento = [];
+    foreach ($agendamentos as $ag) {
+        $pagId = $ag['pagamento_id'];
+        $agendamentosPorPagamento[$pagId][] = $ag;
     }
 
-    echo "</td>";
-} else {
-    echo "<td colspan='3'>Serviço não encontrado</td>";
-}
+    foreach ($agendamentosPorPagamento as $pagamento_id => $listaAgs) {
+        $pagamento = $pagamentos[$pagamento_id] ?? null;
 
+        echo "<tr>
+                <th colspan='3'>Total a pagar</th>
+                <th>Status pagamento</th>
+                <th>Dia agendamento</th>
+              </tr>";
 
-                    echo "</tr>";
-                            }
+        if ($pagamento) {
+            echo "<tr>
+                    <td colspan='3'>R$ " . number_format($pagamento['valor_pagar'], 2, ',', '.') . "</td>
+                    <td>{$pagamento['status_pagamento']}</td>
+                    <td>{$pagamento['created_at']}</td>
+                  </tr>";
+        } else {
+            echo "<tr><td colspan='5'>Pagamento não encontrado</td></tr>";
+        }
 
-                                    
+        echo "<tr>
+                <th>Tipo do Serviço</th>
+                <th>Dia</th>
+                <th>Hora</th>
+                <th>Valor</th>
+                <th>Duração</th>
+                <th>Status de atendimento</th>
+                <th>Motivo de não atendimento</th>
+              </tr>";
+
+        foreach ($listaAgs as $ag) {
+            $servico = $servicos[$ag['servico_id']] ?? null;
+            $foiAtendido = $ag['ja_atendido'] === 'sim';
+            $temMotivo = !empty($ag['motivo_falta']);
+
+            echo "<tr>";
+            echo "<td>" . ($servico['tipo_servico'] ?? 'Desconhecido') . "</td>";
+            echo "<td>{$ag['dia']}</td>";
+            echo "<td>{$ag['hora']}</td>";
+            echo "<td>R$ " . number_format($servico['valor'] ?? 0, 2, ',', '.') . "</td>";
+            echo "<td>{$servico['duracao_servico']} min</td>";
+
+            // Atendimento
+            echo "<td>";
+            if ($foiAtendido) {
+                echo "✅ ATENDIDO";
+            } elseif ($temMotivo) {
+                echo "❌ NÃO ATENDIDO";
+            } else {
+                echo "⏳ AGENDADO <button class='btn-presenca' data-id='{$ag['id']}'>✅ Atendido</button>";
+            }
+            echo "</td>";
+
+            // Motivo falta
+            echo "<td class='motivo-falta'>";
+            if ($foiAtendido) {
+                echo "-";
+            } elseif ($temMotivo) {
+                echo "<p>" . htmlspecialchars($ag['motivo_falta']) . "</p>";
+            } else {
+                echo "<textarea placeholder='Motivo da falta...' data-id='{$ag['id']}' class='comentario-falta'></textarea>";
+                echo "<button class='btn-salvar-comentario' data-id='{$ag['id']}'>Salvar Motivo</button>";
+            }
+            echo "</td>";
+            echo "</tr>";
         }
     }
+
+    echo "</table>";
+
+
+}
     ?>
             </tbody>
         </table>
