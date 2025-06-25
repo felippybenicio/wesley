@@ -3,7 +3,7 @@ include '../login_empresa/get_id.php';
 include '../conexao.php';
 
 // 1) Buscar clientes
-$stmtClientes = $conn->prepare("SELECT id, empresa_id, nome, sobrenome, cpf, nascimento, email, celular, pagamento_id, cadastrado_em FROM clientes WHERE empresa_id = ?");
+$stmtClientes = $conn->prepare("SELECT id, empresa_id, nome, sobrenome, cpf, nascimento, email, celular, cadastrado_em FROM clientes WHERE empresa_id = ?");
 
 if (!$stmtClientes) {
     die("Erro no prepare dos clientes: " . $conn->error);
@@ -79,6 +79,9 @@ while ($row = $resultServ->fetch_assoc()) {
     <input type="text" id="pesquisa-geral" placeholder="Pesquisar por qualquer informação..." style="margin-bottom:10px; padding:5px; width: 300px;">
     <button id="botao-pesquisa" style="padding: 5px 10px; cursor: pointer;">🔍</button>
 
+    <button class="botao-excluir" data-acao="apagar_agendamentos_todos">🗑️ Apagar TODOS os Agendamentos</button>
+    <button class="botao-excluir" data-acao="limpar_dados_agendamentos">🧹 Limpar apenas dados de Agendamento (manter clientes)</button>
+
 
 
     <h1>Clientes, Agendamentos e Pagamentos</h1>
@@ -91,7 +94,8 @@ while ($row = $resultServ->fetch_assoc()) {
     }
 
     // Percorrer clientes com seus agendamentos
-foreach ($agendamentos_por_cliente as $cliente_id => $agendamentos) {
+foreach ($clientes as $cliente_id => $cliente) {
+    $agendamentos = $agendamentos_por_cliente[$cliente_id] ?? [];
     $cliente = $clientes[$cliente_id] ?? null;
     if (!$cliente) continue;
 
@@ -105,6 +109,10 @@ foreach ($agendamentos_por_cliente as $cliente_id => $agendamentos) {
             <th>Email</th>
             <th>Celular</th>
             <th>Dia cadastrado</th>
+            <th>
+                <button class='botao-excluir-cliente' data-cliente-id='$cliente_id'>❌ Apagar Cliente COMPLETO</button><br>
+                <button class='botao-excluir-agendamentos' data-cliente-id='$cliente_id'>📅 Apagar Agendamentos do Cliente</button>
+            </th>
           </tr>";
 
     echo "<tr>
@@ -126,23 +134,34 @@ foreach ($agendamentos_por_cliente as $cliente_id => $agendamentos) {
     }
 
     foreach ($agendamentosPorPagamento as $pagamento_id => $listaAgs) {
-        $pagamento = $pagamentos[$pagamento_id] ?? null;
+    $pagamento = $pagamentos[$pagamento_id] ?? null;
 
-        echo "<tr>
-                <th colspan='3'>Total a pagar</th>
-                <th>Status pagamento</th>
-                <th>Dia agendamento</th>
-              </tr>";
+    echo "<tr>
+            <th colspan='3'>Total a pagar</th>
+            <th>Status pagamento</th>
+            <th>Dia agendamento</th>
+          </tr>";
 
-        if ($pagamento) {
-            echo "<tr>
-                    <td colspan='3'>R$ " . number_format($pagamento['valor_pagar'], 2, ',', '.') . "</td>
-                    <td>{$pagamento['status_pagamento']}</td>
-                    <td>{$pagamento['created_at']}</td>
-                  </tr>";
-        } else {
-            echo "<tr><td colspan='5'>Pagamento não encontrado</td></tr>";
-        }
+            if ($pagamento) {
+                $status = $pagamento['status_pagamento'];
+                $valor = number_format($pagamento['valor_pagar'], 2, ',', '.');
+                $data = $pagamento['created_at'];
+                $id_pagamento = $pagamento['id'];
+
+                echo "<tr>";
+                echo "<td colspan='3'>R$ $valor</td>";
+
+                if ($status === 'pendente') {
+                    echo "<td data-status='$status'>$status <button type='button' onclick='marcarComoPago($id_pagamento, this)'>pago</button></td>";
+                } else {
+                    echo "<td data-status='$status'>$status</td>";
+                }
+
+                echo "<td>$data</td>";
+                echo "</tr>";
+            }
+
+
 
         echo "<tr>
                 <th>Tipo do Serviço</th>

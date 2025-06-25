@@ -74,19 +74,6 @@ if ($conn->connect_error) {
 }
 
 
-// $verificaCpf = $conn->prepare("SELECT id FROM clientes WHERE empresa_id = ? AND cpf = ?");
-// $verificaCpf->bind_param("is", $empresa_id, $cpf);
-// $verificaCpf->execute();
-// $verificaCpf->store_result();
-
-// if ($empresa_id && $verificaCpf->num_rows > 0) {
-//     echo "<p style='color:red;'>Já existe um agendamento com este CPF.</p>";
-//     $verificaCpf->close();
-//     $conn->close();
-//     exit;
-// }
-// $verificaCpf->close();
-
 
 $valor_total = 0;
 $qtdagendamentos = count($_POST['agendamentos']);
@@ -110,57 +97,59 @@ $horas = $_POST['hora'];
 $servicos = $_POST['agendamentos'];
 $hoje = date('Y-m-d');
 
-$cpf = preg_replace('/\D/', '', $_POST['cpf']); // limpa o CPF
-$hoje = date('Y-m-d');
 
-// 🔒 Verificar agendamento em aberto
+$hoje = date('Y-m-d');
+$cpfLimpo = preg_replace('/\D/', '', $cpf);
+
+
 $sql = "
     SELECT COUNT(*) 
     FROM agendamento a
     JOIN clientes c ON a.cliente_id = c.id
     WHERE c.empresa_id = ? 
-    AND REPLACE(c.cpf, '.', '') = ?
-    AND REPLACE(c.cpf, '-', '') = ?
-    AND a.dia >= ?
-    AND (a.ja_atendido IS NULL OR a.ja_atendido = '')
+      AND REPLACE(REPLACE(TRIM(c.cpf), '.', ''), '-', '') = ?
+      AND a.ja_atendido IS NULL
 ";
+
 $verificaAgendamento = $conn->prepare($sql);
-$verificaAgendamento->bind_param("isss", $empresa_id, $cpf, $cpf, $hoje);
+$verificaAgendamento->bind_param("is", $empresa_id, $cpfLimpo);
 $verificaAgendamento->execute();
-$verificaAgendamento->bind_result($qtdAberto);
+$verificaAgendamento->bind_result($qtdEmAberto);
 $verificaAgendamento->fetch();
 $verificaAgendamento->close();
 
-if ($qtdAberto >= 1) {
-    echo "<p style='color:red;'>Você já possui agendamento em aberto. Conclua ou cancele antes de marcar outro.</p>";
+if ($qtdEmAberto > 0) {
+    echo "<p style='color:red;'>Você já possui um agendamento em andamento. Finalize ou cancele antes de marcar outro.</p>";
     $conn->close();
     exit;
 }
 
-//VERIFICARRRRRRRRRRR
-// 🔒 Verificar pagamento pendente
+
 $sql = "
-    SELECT p.status_pagamento
+    SELECT COUNT(*) 
     FROM agendamento a
     JOIN pagamento p ON a.pagamento_id = p.id
     JOIN clientes c ON a.cliente_id = c.id
-    WHERE c.empresa_id = ? AND c.cpf = ?
-    ORDER BY a.dia DESC
-    LIMIT 1
+    WHERE c.empresa_id = ?
+      AND REPLACE(REPLACE(TRIM(c.cpf), '.', ''), '-', '') = ?
+      AND p.status_pagamento = 'pendente'
 ";
 
 $verificaPagamento = $conn->prepare($sql);
-$verificaPagamento->bind_param("is", $empresa_id, $cpf);
+$verificaPagamento->bind_param("is", $empresa_id, $cpfLimpo);
 $verificaPagamento->execute();
-$verificaPagamento->bind_result($statusPagamento);
+$verificaPagamento->bind_result($qtdPendentes);
 $verificaPagamento->fetch();
 $verificaPagamento->close();
 
-if ($statusPagamento !== 'pago') {
-    echo "<p style='color:red;'>Você só pode reagendar após pagamento do último agendamento.</p>";
+if ($qtdPendentes > 0) {
+    echo "<p style='color:red;'>Você possui pagamento pendente. Regularize antes de agendar novamente.</p>";
     $conn->close();
     exit;
 }
+
+
+
 
 
 
@@ -236,14 +225,14 @@ if ($cliente_id_existente) {
 } else {
     // Cliente ainda não existe, então inserir
     $dadosPessoais = $conn->prepare("
-        INSERT INTO clientes (empresa_id, nome, sobrenome, nascimento, email, cpf, celular, pagamento_id) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO clientes (empresa_id, nome, sobrenome, nascimento, email, cpf, celular) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
     if (!$dadosPessoais) {
         die("Erro ao preparar cliente: " . $conn->error);
     }
 
-    $dadosPessoais->bind_param("issssssi", $empresa_id, $nome, $sobrenome, $nascimento, $email, $cpf, $cll, $pagamento_id);
+    $dadosPessoais->bind_param("issssss", $empresa_id, $nome, $sobrenome, $nascimento, $email, $cpf, $cll);
     
     if (!$dadosPessoais->execute()) {
         die("Erro ao executar cliente: " . $dadosPessoais->error);
@@ -296,7 +285,7 @@ $preference = new Preference();
 $preference->items = [$item];
 $preference->external_reference = $pagamento_id;
 
-$base_url = "https://d9de-2804-7f0-b7c2-9926-4c12-cc92-b07e-c22.ngrok-free.app/wesley/pages";
+$base_url = "https://a5ef-2804-7f0-b7c2-9926-3cf5-759f-f9b0-6fc6.ngrok-free.app/wesley/pages";
 
 $preference->back_urls = [
     "success" => $base_url . "/sucesso.html",
@@ -347,11 +336,36 @@ $stmt->close();
 
 // Exibição final
 echo "<h1>Obrigado, " . htmlspecialchars($nome) . ", pela sua preferência!</h1>";
-echo "<p>Serviço: <strong>" . htmlspecialchars($tipo_servico) . "</strong></p>";
-echo "<p>Data: <strong>" . htmlspecialchars($dia) . "</strong> às <strong>" . htmlspecialchars($hora) . "</strong></p>";
-echo "<p>Duração unitária: <strong>" . htmlspecialchars($duracao_servico) . " sessão(ões)</strong></p>";
-echo "<p>Total: R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
+
+foreach ($servicos as $index => $servicoData) {
+    $servico_id = (int) $servicoData['servico_id'];
+    $dia = htmlspecialchars($dias[$index] ?? '', ENT_QUOTES, 'UTF-8');
+    $hora = htmlspecialchars($horas[$index] ?? '', ENT_QUOTES, 'UTF-8');
+
+    // Buscar os dados do serviço no banco
+    $sql = "SELECT tipo_servico, duracao_servico, valor FROM servico WHERE empresa_id = ? AND id = ? LIMIT 1";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $empresa_id, $servico_id);
+    $stmt->execute();
+    $stmt->bind_result($tipo_servico, $duracao_servico, $valor);
+    $stmt->fetch();
+    $stmt->close();
+
+    // Exibir as informações do serviço
+    echo "<div style='margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px;'>";
+    echo "<p>Serviço: <strong>" . htmlspecialchars($tipo_servico) . "</strong></p>";
+    echo "<p>Data: <strong>$dia</strong> às <strong>$hora</strong></p>";
+    echo "<p>Duração unitária: <strong>" . htmlspecialchars($duracao_servico) . "</strong></p>";
+    echo "<p>Valor: R$ " . number_format($valor, 2, ',', '.') . "</p>";
+    echo "</div>";
+    echo "<p>valor total</p>";
+    echo "R$" . number_format($valor_total, 2, ',', '.');
+}
+
+
+
 echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
+
 ?>
 </body>
 </html>

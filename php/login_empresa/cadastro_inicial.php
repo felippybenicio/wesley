@@ -1,74 +1,60 @@
 <?php
-include '../conexao.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+include_once '../conexao.php';
+session_start();
+
+// Função para limpar entrada
+function limparEntrada($dado) {
+    return htmlspecialchars(trim($dado));
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Captura e sanitiza os dados
+$empresa = limparEntrada($_POST['empresa'] ?? '');
+$ramo = limparEntrada($_POST['ramo'] ?? '');
+$email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+$senha = $_POST['senha'] ?? '';
+$dataCadastro = date('Y-m-d H:i:s');
 
-    $id = $_POST['id'];
-    $nome = $_POST['empresa'];
-    $ramo = $_POST['ramo'];
-    $email = $_POST['email'];
-    $senha = password_hash($_POST['senha'], PASSWORD_DEFAULT);
-    $data = date('Y-m-d');
-
-    if (empty($id)) {
-        // Cadastro novo - primeiro insere a empresa
-        $stmt = $conn->prepare("INSERT INTO cadastro_empresa 
-            (nome_empresa, ramo_empresa, email_profissional, senha_inicial, dia_criacao) 
-            VALUES (?, ?, ?, ?, ?)");
-
-        if (!$stmt) {
-            die("Erro no prepare: " . $conn->error);
-        }
-
-        $stmt->bind_param("sssss", $nome, $ramo, $email, $senha, $data);
-        $stmt->execute();
-
-        if ($stmt->error) {
-            die("Erro ao cadastrar empresa: " . $stmt->error);
-        }
-
-        $empresa_id = $conn->insert_id; // Agora temos o ID da empresa
-
-        // Inserir valores padrão na tabela horario_config
-        // $stmt = $conn->prepare("INSERT INTO horario_config 
-        //     (empresa_id) 
-        //     VALUES (?)");
-        // $stmt->bind_param("i", $empresa_id);
-        // $stmt->execute();
-        // if ($stmt->error) {
-        //     die("Erro ao cadastrar horário: " . $stmt->error);
-        // }
-
-        $_SESSION['empresa_id'] = $empresa_id;
-        setcookie('empresa_id', $empresa_id, time() + (86400 * 7), "/"); // Cookie por 7 dias
-
-        // Após o cadastro
-        header("Location: ../../pages/login_empresa/tela_login.html");
-        exit;
-    } else {
-        // Atualizar empresa existente
-        $stmt = $conn->prepare("UPDATE cadastro_empresa 
-            SET nome_empresa=?, ramo_empresa=?, email_profissional=?, dia_criacao=?
-            WHERE id=?");
-
-        if (!$stmt) {
-            die("Erro no prepare (update): " . $conn->error);
-        }
-
-        $stmt->bind_param("ssssi", $nome, $ramo, $email, $data, $id);
-        $stmt->execute();
-
-        if ($stmt->error) {
-            die("Erro no update: " . $stmt->error);
-        }
-
-        $_SESSION['empresa_id'] = $id;
-        setcookie('empresa_id', $id, time() + (86400 * 7), "/");
-
-        echo "Cadastro atualizado!";
-    }
+// ⚠️ Verificação de campos obrigatórios
+if (empty($empresa) || empty($ramo) || empty($email) || empty($senha)) {
+    echo "Preencha todos os campos obrigatórios.";
+    exit;
 }
+
+// ⚠️ Verificação de e-mail válido
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo "E-mail inválido.";
+    exit;
+}
+
+// ⚠️ Verificação mínima da senha (ex: 8 caracteres)
+if (strlen($senha) < 8) {
+    echo "A senha deve ter no mínimo 8 caracteres.";
+    exit;
+}
+
+// 🔐 Criptografia da senha
+$senhaHash = password_hash($senha, PASSWORD_DEFAULT);
+
+// SQL preparado para evitar SQL Injection
+$sql = "INSERT INTO cadastro_empresa 
+        (nome_empresa, ramo_empresa, email_profissional, senha_inicial, dia_cadastrado)
+        VALUES (?, ?, ?, ?, ?)";
+
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    echo "Erro na preparação da query: " . $conn->error;
+    exit;
+}
+
+$stmt->bind_param("sssss", $empresa, $ramo, $email, $senhaHash, $dataCadastro);
+
+// Execução segura
+if ($stmt->execute()) {
+    
+} else {
+    echo "Erro ao cadastrar: " . $stmt->error;
+}
+
+$stmt->close();
+$conn->close();
 ?>

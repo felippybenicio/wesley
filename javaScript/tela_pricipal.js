@@ -88,37 +88,37 @@ function marcarDiasCheios(servicoSelecionado, index) {
             } 
 
             // Marcar horários ocupados (em vermelho)
-// if (horariosOcupados[servicoSelecionado]) {
-//     const inputData = document.getElementById(`data-${index}`);
-//     if (!inputData) {
-//         console.warn(`Elemento data-${index} não encontrado.`);
-//         return;
-//     }
+        // if (horariosOcupados[servicoSelecionado]) {
+        //     const inputData = document.getElementById(`data-${index}`);
+        //     if (!inputData) {
+        //         console.warn(`Elemento data-${index} não encontrado.`);
+        //         return;
+        //     }
 
-//     const dataSelecionada = inputData.value;
-//     console.log("🔎 Data selecionada:", dataSelecionada);
+        //     const dataSelecionada = inputData.value;
+        //     console.log("🔎 Data selecionada:", dataSelecionada);
 
-//     horariosOcupados[servicoSelecionado].forEach(entry => {
-//         console.log("⏰ Verificando horário:", entry);
+        //     horariosOcupados[servicoSelecionado].forEach(entry => {
+        //         console.log("⏰ Verificando horário:", entry);
 
-//         if (entry.dia === dataSelecionada) {
-//             const horaOcupada = entry.hora;
+        //         if (entry.dia === dataSelecionada) {
+        //             const horaOcupada = entry.hora;
 
-//             document.querySelectorAll("#horarios tbody td").forEach(td => {
-//                 console.log("🔘 Comparando:", td.textContent, horaOcupada);
-//                 if (td.textContent.trim() === horaOcupada.trim()) {
-//                     td.style.backgroundColor = "red";
-//                     td.style.color = "white";
-//                     td.style.pointerEvents = "none";
-//                 }
-//             });
-//         }
-//     });
-// }
+        //             document.querySelectorAll("#horarios tbody td").forEach(td => {
+        //                 console.log("🔘 Comparando:", td.textContent, horaOcupada);
+        //                 if (td.textContent.trim() === horaOcupada.trim()) {
+        //                     td.style.backgroundColor = "red";
+        //                     td.style.color = "white";
+        //                     td.style.pointerEvents = "none";
+        //                 }
+        //             });
+        //         }
+        //     });
+        // }
 
-        })
-        .catch(err => console.error("Erro ao buscar dias ocupados:", err));
-}
+                 })
+        //         .catch(err => console.error("Erro ao buscar dias ocupados:", err));
+         }
 
 
 function aplicarConfiguracoesMes() {

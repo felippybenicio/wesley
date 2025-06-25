@@ -1,10 +1,10 @@
 <?php
-    session_start();
+session_start();
 
-    if (!isset($_SESSION['empresa_id'])) {
-        header("Location: ../login_empresa/login.php");
-        exit;
-    }
+if (!isset($_SESSION['empresa_id'])) {
+    http_response_code(401); // não autorizado
+    echo json_encode(['erro' => 'Acesso não autorizado']);
+    exit;
+}
 
-    $empresa_id = (int) $_SESSION['empresa_id'];
-?>
+$empresa_id = $_SESSION['empresa_id'];

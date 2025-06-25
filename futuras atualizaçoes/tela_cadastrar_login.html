@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cadastro login</title>
+</head>
+<body>
+    <a href="tela_login.html">voltar</a>
+    <h1>faça seu cadastro</h1>
+
+    <form action="/../wesley/php/login_empresa/cadastro_inicial.php" method="POST">
+        
+        <div>
+            <label for="empresa">Nome da Sua Empresa</label>
+            <input type="text" name="empresa" id="empresa">
+        </div>
+        <div>
+            <label for="ramo">ramo da sua empresa</label>
+            <input type="text" name="ramo" id="ramo">
+        </div> 
+        <div>
+            <label for="email">E-mail</label>
+            <input type="email" name="email" id="email">
+        </div>
+        <div>
+            <label for="senha">Senha</label>
+            <input type="password" name="senha" id="senha">
+        </div>
+        <input type="hidden" name="id" id="id"><br>
+        
+
+        <label for="qtServicos">Quantidade de serviços que deseja</label>
+        <select name="qtServicos" id="qtServicos">
+            <option value="5">5 serviços ja incluso</option>
+            <option value="10">+10 serviços (R$9,90)</option>
+            <option value="20">+20 serviços (R$19,90)</option>
+            <option value="30">+30 serviços (R$29,90)</option>
+            <option value="40">+40 serviços (R$39,90)</option>
+            <option value="50">+50 serviços (R$49,90)</option>
+        </select><br>
+        <label for="qtFuncionarios">Quantidade de funcionarios por serviço que deseja</label>
+        <select name="qtFuncionarios" id="qtFuncionarios">
+            <option value="5">5 funcionarios ja incluso</option>
+            <option value="10">+10 funcionarios (R$14,90)</option>
+            <option value="20">+20 funcionarios (R$29,90)</option>
+            <option value="30">+30 funcionarios (R$44,90)</option>
+            <option value="40">+40 funcionarios (R$59,90)</option>
+            <option value="50">+50 funcionarios (R$74,90)</option>
+        </select><br>
+
+        <h2>Qual a forma de pagamento melhor para você?</h2>
+        <input type="radio" id="mensal" name="formaPagamento" value="mensal">
+        <label for="mensal">Mensal R$199,90</label>
+        
+        <input type="radio" id="anual" name="formaPagamento" value="anual">
+        <label for="anual">Anual R$3.000,00</label>
+        
+        <input type="radio" id="vitalicio" name="formaPagamento" value="vitalicio">
+        <label for="vitalicio">Vitalício R$7.000,00</label><br>
+
+        <h2>gostaria de suporte tecnico</h2>
+        <a href="../pacotes.html" target="_blank">veja os pacotes</a>
+        <select name="planos" id="planos">
+            <option value="basic">pacote Basic - incliuso</option>
+            <option value="standard">pacote Standard (R$35,90)</option>
+            <option value="plus">pacote Plus (R$75,90)</option>
+        </select><br>
+
+        <button type="submit">continuar</button><br>
+        
+    </form>
+
+
+    <script src="../../javaScript/login_empresa.js"></script>
+
+    <button>dar descontos</button> <!--botao que sera escondido para eu poder desconto-->
+</body>
+</html>
