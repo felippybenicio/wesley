@@ -86,39 +86,13 @@ function marcarDiasCheios(servicoSelecionado, index) {
             } else {
                 console.warn(`Nenhum dia cheio para o serviço ${servicoSelecionado}`);
             } 
+            
+    });
+}
 
-            // Marcar horários ocupados (em vermelho)
-        // if (horariosOcupados[servicoSelecionado]) {
-        //     const inputData = document.getElementById(`data-${index}`);
-        //     if (!inputData) {
-        //         console.warn(`Elemento data-${index} não encontrado.`);
-        //         return;
-        //     }
 
-        //     const dataSelecionada = inputData.value;
-        //     console.log("🔎 Data selecionada:", dataSelecionada);
 
-        //     horariosOcupados[servicoSelecionado].forEach(entry => {
-        //         console.log("⏰ Verificando horário:", entry);
 
-        //         if (entry.dia === dataSelecionada) {
-        //             const horaOcupada = entry.hora;
-
-        //             document.querySelectorAll("#horarios tbody td").forEach(td => {
-        //                 console.log("🔘 Comparando:", td.textContent, horaOcupada);
-        //                 if (td.textContent.trim() === horaOcupada.trim()) {
-        //                     td.style.backgroundColor = "red";
-        //                     td.style.color = "white";
-        //                     td.style.pointerEvents = "none";
-        //                 }
-        //             });
-        //         }
-        //     });
-        // }
-
-                 })
-        //         .catch(err => console.error("Erro ao buscar dias ocupados:", err));
-         }
 
 
 function aplicarConfiguracoesMes() {
@@ -409,7 +383,7 @@ function ativarCliqueNosDias() {
             const dia = td.textContent.padStart(2, '0');
             const mesSelecionado = document.getElementById('mesSelect').value.padStart(2, '0');
             const agora = new Date();
-            const ano = agora.getFullYear(); // opcionalmente, você pode criar um select de ano também
+            const ano = agora.getFullYear();
             const dataSelecionada = `${ano}-${mesSelecionado}-${dia}`;
 
             fetch('buscar_horario.php', {
@@ -428,24 +402,22 @@ function ativarCliqueNosDias() {
 
                 const selectServico = document.getElementById(`servico-${agendamentoAtivo}`);
                 const servicoId = selectServico.value;
-                const tempoEntre = intervaloEntreHorarios[servicoId] || 60; // fallback pra evitar erro
+                const tempoEntre = intervaloEntreHorarios[servicoId] || 60;
 
-                console.log("Tempo total entre sessões:", tempoEntre);
-
-
-                // Preenche a data correta no input
+                // Preenche a data no input
                 const inputData = document.getElementById(`dia-${agendamentoAtivo}`);
                 inputData.value = dataSelecionada;
 
-                // Gera e exibe os horários
-                const lista = gerarHorariosComMinutos(horarios.inicio, horarios.termino, tempoEntre);
-                
-                if (lista.length === 0) {
+                // Gera lista de horários possíveis
+                const listaHorarios = gerarHorariosComMinutos(horarios.inicio, horarios.termino, tempoEntre);
+
+                if (listaHorarios.length === 0) {
                     alert("Nenhum horário disponível.");
                     return;
                 }
 
-                exibirHorarios(lista);
+                // Agora chama carregarHorarios que vai buscar horários ocupados e chamar exibirHorarios
+                carregarHorarios(dataSelecionada, servicoId, listaHorarios);
             })
             .catch(error => {
                 console.error('Erro ao buscar horários:', error);
@@ -454,36 +426,16 @@ function ativarCliqueNosDias() {
     });
 }
 
-function exibirHorarios(horarios) {
-    const tbody = document.querySelector("#horarios tbody");
-    tbody.innerHTML = "";
-
-    horarios.forEach(horario => {
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-        td.textContent = horario;
-
-        td.addEventListener('click', function () {
-            if (agendamentoAtivo !== null) {
-                const inputHora = document.getElementById(`hora-${agendamentoAtivo}`);
-                inputHora.value = horario;
-
-                // Atualiza cor do horário selecionado
-                document.querySelectorAll("#horarios tbody td").forEach(el => {
-                    el.style.color = ''; // limpa os outros
-                });
-                this.style.color = 'blue';
-            }
-        });
-
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-    });
-}
 
 
+
+// Função para gerar horários, igual a do PHP, mas em JS
 function gerarHorariosComMinutos(inicio, fim, intervaloMinutos) {
     const horarios = [];
+
+    // Garante formato HH:MM
+    inicio = inicio.slice(0, 5);
+    fim = fim.slice(0, 5);
 
     let [hInicio, mInicio] = inicio.split(':').map(Number);
     let [hFim, mFim] = fim.split(':').map(Number);
@@ -499,6 +451,98 @@ function gerarHorariosComMinutos(inicio, fim, intervaloMinutos) {
     }
 
     return horarios;
+}
+
+
+function exibirHorarios(horarios, horasCheias = []) {
+    const tbody = document.querySelector("#horarios tbody");
+    tbody.innerHTML = "";
+
+    // Remove espaços extras e padroniza formato para 'HH:MM'
+    const formatarHora = h => {
+        let [hh, mm] = h.trim().split(':');
+        if (mm === undefined) mm = "00";
+        hh = hh.padStart(2, '0');
+        mm = mm.padStart(2, '0');
+        return `${hh}:${mm}`;
+    };
+
+    const horasCheiasFormatadas = horasCheias.map(formatarHora);
+
+    horarios.forEach(horario => {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        const horarioFormatado = formatarHora(horario);
+
+        td.textContent = horarioFormatado;
+
+        if (horasCheiasFormatadas.includes(horarioFormatado)) {
+            td.style.color = 'red';
+            td.style.fontWeight = 'bold';
+        }
+
+        td.addEventListener('click', function () {
+            if (agendamentoAtivo !== null && td.style.color !== 'red') {
+                const inputHora = document.getElementById(`hora-${agendamentoAtivo}`);
+                inputHora.value = horarioFormatado;
+
+                // Resetar cores: mantém vermelho nas horas cheias
+                document.querySelectorAll("#horarios tbody td").forEach(el => {
+                    const elHora = formatarHora(el.textContent);
+                    if (horasCheiasFormatadas.includes(elHora)) {
+                        el.style.color = 'red';
+                        el.style.fontWeight = 'bold';
+                    } else {
+                        el.style.color = '';
+                        el.style.fontWeight = '';
+                    }
+                });
+
+                this.style.color = 'blue';
+                this.style.fontWeight = 'bold';
+            }
+        });
+
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    });
+}
+
+
+
+function carregarHorarios(diaSelecionado, servicoIdSelecionado) {
+    if (!servicoIdSelecionado) {
+        console.warn("Serviço não selecionado");
+        return;
+    }
+
+    fetch(`../../php/agendamentos/dias_ocupados.php?servico_id=${servicoIdSelecionado}&data=${diaSelecionado}`)
+        .then(res => {
+            if (!res.ok) throw new Error("Erro no fetch dias_ocupados.php");
+            return res.json();
+        })
+        .then(dados => {
+            // Corrigido aqui:
+            const horariosOcupados = dados.horarios_ocupados?.[servicoIdSelecionado]?.[diaSelecionado] || [];
+            const horasCheiasNoDia = horariosOcupados.map(h => h.trim());
+
+            const dadosServico = dados.dados_servico_selecionado || {
+                inicio_servico: '08:00',
+                termino_servico: '18:00',
+                intervalo_total: 60
+            };
+
+            const inicio = dadosServico.inicio_servico;
+            const termino = dadosServico.termino_servico;
+            const intervalo = dadosServico.intervalo_total;
+
+            const horariosPossiveis = gerarHorariosComMinutos(inicio, termino, intervalo);
+
+            exibirHorarios(horariosPossiveis, horasCheiasNoDia);
+        })
+        .catch(err => {
+            console.error("❌ Erro ao carregar horários:", err);
+        });
 }
 
 
