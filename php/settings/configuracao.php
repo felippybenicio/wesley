@@ -613,7 +613,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
 </script>
 
 
-<script src="/wesley/javaScript/configuracao.js"></script>
+<script src="/sistema-agendamento/javaScript/configuracao.js"></script>
 
 
 <script>

@@ -285,7 +285,7 @@ $preference = new Preference();
 $preference->items = [$item];
 $preference->external_reference = $pagamento_id;
 
-$base_url = "https://a5ef-2804-7f0-b7c2-9926-3cf5-759f-f9b0-6fc6.ngrok-free.app/wesley/pages";
+$base_url = "https://a5ef-2804-7f0-b7c2-9926-3cf5-759f-f9b0-6fc6.ngrok-free.app/sistema-agendamento/pages";
 
 $preference->back_urls = [
     "success" => $base_url . "/sucesso.html",
