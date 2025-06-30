@@ -61,7 +61,7 @@ function timeToMinutes($timeStr) {
     
 </head>
 <body>
-    <a href="../settings/configuracao.php">configuração</a>
+    <a href="..\login_empresa\login_geral.php">configuração</a>
     <a href="../tabela_clientes/clientes_agendados.php">agendamentos de clientes</a>
     <h1>ola seja bem vindo</h1>
     <p>como podemos ajudar?</p>
@@ -101,7 +101,7 @@ function timeToMinutes($timeStr) {
 
                 
                 <div>
-                    <label for="qtdagendamentos">Quantas sessões deseja:</label>
+                    
 
                     <?php
                         $stmt = $conn->prepare("SELECT agendamentos_por_clientes FROM quantidade_servico WHERE empresa_id = ?");
@@ -111,6 +111,7 @@ function timeToMinutes($timeStr) {
                         $stmt->fetch();
                         $stmt->close();
                     ?>
+                    <label for="qtdagendamentos">Quantas sessões deseja:</label>
                     <input type="number" name="qtdagendamentos" id="qtdagendamentos" value="1" min="1" max="<?= htmlspecialchars($agendamentosPorClientes) ?>">
                 </div>
                 <div name="servico" id="servico"></div>
@@ -174,5 +175,5 @@ function timeToMinutes($timeStr) {
     </script>
 
     <script src="../../javaScript/tela_pricipal.js"></script>
-</body>
+</body> 
 </html>

@@ -10,13 +10,8 @@
     //include 'restringir_agendamentos.php';
     include '../login_empresa/get_id.php';
     include '../conexao.php';
-    require __DIR__ . '../../vendor/autoload.php';
+    require_once __DIR__ . '/../vendor/autoload.php';
 
-    use MercadoPago\SDK;
-    use MercadoPago\Preference;
-    use MercadoPago\Item;
-
-    SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
 
 
 
@@ -32,7 +27,7 @@
     $cpf        = $_POST["cpf"] ?? '';
     $cll        = $_POST["cll"] ?? '';
     $servico    = $_POST["servico"] ?? '';
-    preg_match('/\d+/', $_POST["qtdagendamentos"], $match);
+    preg_match('/\d+/', $_POST["qtdagendamentos"] ?? '', $match);
     $qtdagendamentos = (int)($match[0] ?? 1);
     $dia        = $_POST["dia"] ?? '';
     $hora       = $_POST["hora"] ?? '';
@@ -45,7 +40,7 @@
     if (!$stmt) {
         die("Erro no prepare (funcionários): " . $conn->error);
     }
-    $stmt->bind_param("i", $servico);
+    $stmt->bind_param("i", $servico_id);
     $stmt->execute();
     $stmt->bind_result($qtdFuncionarios);
     $stmt->fetch();
@@ -58,15 +53,19 @@ foreach ($configs as $config) {
 }
 
 $valorAtual = 0;
-foreach ($configs as $config) {
-    $servicoConfig = $config['tipo_servico'];
-    $valor = $config['valor'];
 
-    if ( $servicoConfig) {
-        $valorAtual = (float)$valor;
-        break;
-    }
+$stmt = $conn->prepare("SELECT valor FROM servico WHERE id = ?");
+if (!$stmt) {
+    die("Erro no prepare (valor): " . $conn->error);
 }
+$stmt->bind_param("i", $servico_id);
+$stmt->execute();
+$stmt->bind_result($valorAtual);
+$stmt->fetch();
+$stmt->close();
+
+$valorAtual = (float)$valorAtual;
+
 
 
 if ($conn->connect_error) {
@@ -76,20 +75,31 @@ if ($conn->connect_error) {
 
 
 $valor_total = 0;
-$qtdagendamentos = count($_POST['agendamentos']);
+$qtdagendamentos = isset($_POST['agendamentos']) && is_array($_POST['agendamentos']) 
+    ? count($_POST['agendamentos']) 
+    : 0;
+
 
 // Já calcula o valor total antes
-foreach ($_POST['agendamentos'] as $ag) {
-    $servico_id = (int)$ag['servico_id'];
+if (isset($_POST['agendamentos']) && is_array($_POST['agendamentos'])) {
+    foreach ($_POST['agendamentos'] as $ag) {
+        $servico_id = (int)($ag['servico_id'] ?? 0);
 
-    $stmt = $conn->prepare("SELECT valor FROM servico WHERE empresa_id = ? AND id = ?");
-    $stmt->bind_param("ii", $empresa_id, $servico_id);
-    $stmt->execute();
-    $stmt->bind_result($valor_unitario);
-    $stmt->fetch();
-    $stmt->close();
+        if ($servico_id > 0) {
+            $stmt = $conn->prepare("SELECT valor FROM servico WHERE empresa_id = ? AND id = ?");
+            $stmt->bind_param("ii", $empresa_id, $servico_id);
+            $stmt->execute();
+            $stmt->bind_result($valor_unitario);
+            $stmt->fetch();
+            $stmt->close();
 
-    $valor_total += (float)$valor_unitario;
+            $valor_total += (float)$valor_unitario;
+        }
+    }
+} else {
+    // Evita erro: array não veio
+    $_POST['agendamentos'] = []; // (opcional)
+    $valor_total = 0;
 }
 
 $dias = $_POST['dia'];               
@@ -267,43 +277,67 @@ foreach ($servicos as $index => $servicoData) {
     $agendamento->close();
 }
 
+    $tipoPagamento = '';
+    $pixAcesskey = '';
+    $nomeEmpresa = '';
+    $cidade = '';
+
+    $stmt = $conn->prepare("SELECT tipo_pagamento, pix_acesskey, nome_empresa, cidade FROM cadastro_empresa WHERE id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->bind_result($tipoPagamento, $pixAcesskey, $nomeEmpresa, $cidade);
+    $stmt->fetch();
+    $stmt->close();
+
+    use MercadoPago\SDK;
+    use MercadoPago\Preference;
+    use MercadoPago\Item;
+    
+    
 
 
 
 
 
+switch ($tipoPagamento) {
+    case 'Sem Vinculo':
+        
+       break;
 
+    case 'Mercado Pago':
+        SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
 
+        $item = new Item();
+        $item->title = $servico;
+        $item->quantity = 1;
+        $item->unit_price = $valor_total;
 
-// MercadoPago
-$item = new Item();
-$item->title = $servico;
-$item->quantity = 1;
-$item->unit_price = $valor_total;
+        $preference = new Preference();
+        $preference->items = [$item];
+        $preference->external_reference = $pagamento_id;
 
-$preference = new Preference();
-$preference->items = [$item];
-$preference->external_reference = $pagamento_id;
+        $base_url = "https://413d-2804-7f0-b7c3-3550-204c-3983-10d6-be19.ngrok-free.app/sistema-agendamento/pages";
 
-$base_url = "https://a5ef-2804-7f0-b7c2-9926-3cf5-759f-f9b0-6fc6.ngrok-free.app/sistema-agendamento/pages";
+        $preference->back_urls = [
+            "success" => $base_url . "/sucesso.html",
+            "failure" => $base_url . "/falha.html",
+            "pending" => $base_url . "/pendente.html"
+        ];
+        $preference->auto_return = "approved";
+        $preference->notification_url = $base_url . "/confirmacao_vendas/notificacao.php";
 
-$preference->back_urls = [
-    "success" => $base_url . "/sucesso.html",
-    "failure" => $base_url . "/falha.html",
-    "pending" => $base_url . "/pendente.html"
-];
-$preference->auto_return = "approved";
-$preference->notification_url = $base_url . "/confirmacao_vendas/notificacao.php";
-
-try {
-    $preference->save();
-    if (!$preference->init_point) {
-        throw new Exception("Erro ao gerar link de pagamento.");
-    }
-} catch (Exception $e) {
-    echo "<p style='color:red;'>Erro: " . htmlspecialchars($e->getMessage()) . "</p>";
-    exit;
+        try {
+            $preference->save();
+            if (!$preference->init_point) {
+                throw new Exception("Erro ao gerar link de pagamento.");
+            }
+        } catch (Exception $e) {
+            echo "<p style='color:red;'>Erro: " . htmlspecialchars($e->getMessage()) . "</p>";
+            exit;
+        }
+        break;
 }
+
 
 if (isset($dadosPessoais) && $dadosPessoais instanceof mysqli_stmt) {
     try {
@@ -358,14 +392,47 @@ foreach ($servicos as $index => $servicoData) {
     echo "<p>Duração unitária: <strong>" . htmlspecialchars($duracao_servico) . "</strong></p>";
     echo "<p>Valor: R$ " . number_format($valor, 2, ',', '.') . "</p>";
     echo "</div>";
+
     echo "<p>valor total</p>";
     echo "R$" . number_format($valor_total, 2, ',', '.');
 }
 
 
+switch ($tipoPagamento) {
+    case 'Sem Vinculo':
+        echo '';
 
-echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
+        break;
+    case 'Mercado Pago': 
+        echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";
+        break;
+}
+
 
 ?>
+
+<div id="pix-area" style="display: none; text-align: center; margin-top: 20px;">
+    <h3>Escaneie com seu app de banco:</h3>
+    <img src="<?= $qrCodeUrl ?>" alt="QR Code Pix">
+    <p><strong>Código Pix:</strong></p>
+    <textarea id="codigoPix" rows="4" cols="50" readonly><?= $codePix ?></textarea><br>
+    <button onclick="copiarPix()">Copiar código Pix</button>
+</div>
+
+<script>
+function mostrarPix() {
+    document.getElementById('pix-area').style.display = 'block';
+}
+
+function copiarPix() {
+    const codigo = document.getElementById('codigoPix'); 
+    codigo.select();
+    codigo.setSelectionRange(0, 99999); // para mobile
+    document.execCommand("copy");
+    alert("Código Pix copiado!");
+}
+</script>
+
+
 </body>
 </html>

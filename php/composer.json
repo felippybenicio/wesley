@@ -1,5 +1,8 @@
 {
     "require": {
-        "mercadopago/dx-php": "2.6"
-    }
+        "mercadopago/dx-php": "2.6",
+        "lucascudo/pix": "^1.0"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
