@@ -295,17 +295,22 @@ foreach ($servicos as $index => $servicoData) {
     
     
 
+    
 
 
-
+ 
 
 switch ($tipoPagamento) {
+   
     case 'Sem Vinculo':
         
        break;
 
     case 'Mercado Pago':
-        SDK::setAccessToken("TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036");
+        error_reporting(E_ERROR | E_PARSE); // mostra só erros fatais e parse errors
+        ini_set('display_errors', 0);
+
+        SDK::setAccessToken("$pixAcesskey"); //TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036
 
         $item = new Item();
         $item->title = $servico;
@@ -316,7 +321,7 @@ switch ($tipoPagamento) {
         $preference->items = [$item];
         $preference->external_reference = $pagamento_id;
 
-        $base_url = "https://413d-2804-7f0-b7c3-3550-204c-3983-10d6-be19.ngrok-free.app/sistema-agendamento/pages";
+        $base_url = "https://72ac-2804-7f0-b7c3-3550-4cdc-32f-ed54-d378.ngrok-free.app/sistema-agendamento/pages";
 
         $preference->back_urls = [
             "success" => $base_url . "/sucesso.html",
@@ -329,7 +334,7 @@ switch ($tipoPagamento) {
         try {
             $preference->save();
             if (!$preference->init_point) {
-                throw new Exception("Erro ao gerar link de pagamento.");
+                throw new Exception("Erro ao gerar link de pagamento. verifique se o token esta correto");
             }
         } catch (Exception $e) {
             echo "<p style='color:red;'>Erro: " . htmlspecialchars($e->getMessage()) . "</p>";

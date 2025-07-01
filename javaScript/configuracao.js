@@ -7,55 +7,56 @@ let mesAtual = agora.getMonth() + 1;
 let anoAtual = agora.getFullYear();
 
 
+console.log(dadosServicos);
 
 
 
 //SERVIÇOS E FUNCIONARIOS
 
-
+    let dadosGlobais = [];
 
     const qtdInput = document.getElementById("quantidadeServicos");
     const container = document.getElementById("camposServicos");
 
-    function criarCampos(dados = []) {
-
-    const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
-
-
-    const dadosSalvos = [];
-    for (let i = 0; i < dados.length; i++) {
-    const tipo = dados[i]?.tipo_servico || "";
-    const valor = dados[i]?.valor || "";
-    const duracao = dados[i]?.duracao_servico || "";
-    const intervalo = dados[i]?.intervalo_entre_servico || "";
-    const qtFunc = parseInt(dados[i]?.quantidade_de_funcionarios || "1");
-    const funcionarios = dados[i]?.funcionarios || [];
-
-
-        for (let j = 1; j <= qtFunc; j++) {
-            const nome = document.querySelector(`#funcionario${i}_${j}`)?.value || "";
-            funcionarios.push(nome);
+    function deletarServico(idServico) {
+        const index = dadosGlobais.findIndex(s => String(s.id) === String(idServico));
+        if (index !== -1) {
+            dadosGlobais.splice(index, 1); // remove do array
         }
 
-        dadosSalvos.push({
-        id: dados[i]?.id || "",
-        tipo_servico: tipo,
-        valor: valor,
-        duracao_servico: duracao,
-        intervalo_entre_servico: intervalo,
-        quantidade_de_funcionarios: qtFunc,
-        funcionarios: funcionarios
+        const qtdInput = document.getElementById("quantidadeServicos");
+        qtdInput.value = dadosGlobais.length;
+
+        criarCampos(dadosGlobais); // reconstrói a interface
+    }
+
+
+function criarCampos(dados = []) {
+    dadosGlobais = dados; 
+    const qtd = dados.length; // usa somente os dados válidos
+
+    const dadosSalvos = [];
+
+for (let i = 0; i < dados.length; i++) {
+    const d = dados[i] || {};
+
+    dadosSalvos.push({
+        id: d.id || "",
+        tipo_servico: d.tipo_servico || "",
+        valor: d.valor || "",
+        duracao_servico: d.duracao_servico || "",
+        intervalo_entre_servico: d.intervalo_entre_servico || "",
+        quantidade_de_funcionarios: parseInt(d.quantidade_de_funcionarios || "1"),
+        funcionarios: Array.isArray(d.funcionarios) ? d.funcionarios : []
     });
 }
 
 
-    // 2. Preenche os novos blocos com os dados já preenchidos ou os dados originais
+    // Usa somente os dados reais
     const dadosUsar = [];
-
     for (let i = 0; i < qtd; i++) {
         dadosUsar[i] = dadosSalvos[i] || dados[i] || {};
     }
-
 
     container.innerHTML = "";
 
@@ -79,14 +80,15 @@ let anoAtual = agora.getFullYear();
         const funcionarios = s.funcionarios || [];
         const duracao = formatarHora(s.duracao_servico || "");
         const intervalo = formatarHora(s.intervalo_entre_servico || "");
-       
+
         console.log('Criando bloco', i, 'idServico:', idServico);
+
         const bloco = document.createElement("section");
         bloco.innerHTML = `
             <h3>Serviço ${i} <strong id="deleteServico${i}" style="background: red">X</strong></h3> 
             <input type="hidden" class="id-servico" name="id${i}" value="${idServico}">
             <input type="hidden" name="id_secundario${i}" value="${idSecundario}">
-            
+
             <div>
                 <label for="tipo${i}">Serviço:</label>
                 <input type="text" name="tipo${i}" id="tipo${i}" value="${tipo}">
@@ -131,29 +133,47 @@ let anoAtual = agora.getFullYear();
             }
         }
 
+
+
         atualizarFuncionarios(qtFunc);
 
-        // evento para mudar quantidade de funcionários
         bloco.querySelector(`#qtFuncionario${i}`).addEventListener("input", function () {
             const novaQtd = Math.min(Math.max(parseInt(this.value) || 1, 1), 5);
-            atualizarFuncionarios(novaQtd);
+
+            // 1. Coleta os dados atuais de todos serviços/funcionários antes de modificar a UI
+            const dadosAtuais = coletarDadosAtuais();
+
+            // 2. Atualiza os dadosGlobais para manter o estado
+            dadosGlobais = dadosAtuais;
+
+            // 3. Atualiza somente este serviço específico na lista para novaQtd de funcionários
+            dadosGlobais[i - 1].quantidade_de_funcionarios = novaQtd;
+
+            // 4. Garante que a lista funcionarios tem o tamanho correto (sem perder nomes existentes)
+            const funcs = dadosGlobais[i - 1].funcionarios || [];
+            if (funcs.length < novaQtd) {
+                // adiciona vazios para completar
+                for (let k = funcs.length; k < novaQtd; k++) {
+                    funcs.push("");
+                }
+            } else if (funcs.length > novaQtd) {
+                // remove extras
+                funcs.length = novaQtd;
+            }
+            dadosGlobais[i - 1].funcionarios = funcs;
+
+            // 5. Recria os campos para refletir a mudança
+            criarCampos(dadosGlobais);
         });
+
 
         container.appendChild(bloco);
 
-        
         const botaoDelete = bloco.querySelector(`#deleteServico${i}`);
         botaoDelete.addEventListener('click', function () {
             const idServico = bloco.querySelector('.id-servico')?.value || '';
 
-            console.log('Enviando:', {
-                id_servico: idServico,
-            });
-
-            console.log(`Bloco ${i}`, s);
-
             if (confirm("Deseja realmente deletar o serviço e os funcionários?")) {
-                console.log('Removendo bloco:', bloco);
                 fetch('../agendamentos/deletar_servico.php', {
                     method: 'POST',
                     headers: {
@@ -167,57 +187,64 @@ let anoAtual = agora.getFullYear();
                 .then(res => {
                     console.log('Resposta do PHP (crua):', res);
                     if (res.includes('success')) {
-                    bloco.remove();
+                        deletarServico(idServico);
                     } else {
                         alert('Erro ao deletar: ' + res);
                     }
-                })
+                });
             }
-        })
+        });
     }
 }
 
-
     function coletarDadosAtuais() {
-        const qtdInput = document.getElementById("quantidadeServicos");
-        const dados = {};
-        const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
+    const qtdInput = document.getElementById("quantidadeServicos");
+    const dados = [];
+    const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
 
-        for (let i = 1; i <= qtd; i++) {
-            const tipoInput = document.querySelector(`#tipo${i}`);
-            const valorInput = document.querySelector(`#valor${i}`);
-            const qtFuncInput = document.querySelector(`#qtFuncionario${i}`);
-            const duracaoInput = document.querySelector(`#duracaoServico${i}`);
-            const intervaloInput = document.querySelector(`#intervaloServico${i}`);
+    for (let i = 1; i <= qtd; i++) {
+        const tipoInput = document.querySelector(`#tipo${i}`);
+        const valorInput = document.querySelector(`#valor${i}`);
+        const qtFuncInput = document.querySelector(`#qtFuncionario${i}`);
+        const duracaoInput = document.querySelector(`#duracaoServico${i}`);
+        const intervaloInput = document.querySelector(`#intervaloServico${i}`);
+        const idInput = document.querySelector(`[name="id${i}"]`);
+        const idSecInput = document.querySelector(`[name="id_secundario${i}"]`);
 
-            if (!tipoInput || !valorInput || !qtFuncInput) continue;
+        if (!tipoInput || !valorInput || !qtFuncInput) continue;
 
-            const tipo = tipoInput.value || "";
-            const valor = valorInput.value || "";
-            const qtFuncionario = parseInt(qtFuncInput.value) || 1;
-            const duracao = duracaoInput ? duracaoInput.value : "";
-            const intervalo = intervaloInput ? intervaloInput.value : "";
+        const tipo = tipoInput.value || "";
+        const valor = valorInput.value || "";
+        const qtFuncionario = parseInt(qtFuncInput.value) || 1;
+        const duracao = duracaoInput ? duracaoInput.value : "";
+        const intervalo = intervaloInput ? intervaloInput.value : "";
+        const id = idInput ? idInput.value : "";
+        const id_secundario = idSecInput ? idSecInput.value : "";
 
-            const funcionarios = [];
-            for (let j = 1; j <= qtFuncionario; j++) {
-                
-            }
-                dados[i - 1] = {  // Notei que no criarCampos o array é 0-indexed, então aqui melhor usar i-1
-                    tipo_servico: tipo,
-                    valor: valor,
-                    quantidade_de_funcionarios: qtFuncionario,
-                    duracao_servico: duracao,
-                    intervalo_entre_servico: intervalo,
-                    funcionarios: funcionarios
-                };
+        // Coleta os funcionários
+        const funcionarios = [];
+        for (let j = 1; j <= qtFuncionario; j++) {
+            const inputFunc = document.querySelector(`#funcionario${i}_${j}`);
+            const nome = inputFunc ? inputFunc.value : "";
+            funcionarios.push(nome);
+        }
 
-            }
-
-        
-
-        return dados;
-        
+        dados[i - 1] = {
+            id: id,
+            id_secundario: id_secundario,
+            tipo_servico: tipo,
+            valor: valor,
+            quantidade_de_funcionarios: qtFuncionario,
+            duracao_servico: duracao,
+            intervalo_entre_servico: intervalo,
+            funcionarios: funcionarios
+        };
     }
+
+    return dados;
+}
+
+
 
     
     function garantirQuantidadeDeServicos(dados, qtFunc) {
@@ -238,29 +265,39 @@ let anoAtual = agora.getFullYear();
 }
 
 
-document.addEventListener("DOMContentLoaded", function () {
-    const qtdInput = document.getElementById("quantidadeServicos");
+    document.addEventListener("DOMContentLoaded", function () {
+        const qtdInput = document.getElementById("quantidadeServicos");
 
-    if (window.dadosServicosSalvos && window.dadosServicosSalvos.length > 0) {
-        qtdInput.value = window.dadosServicosSalvos.length;
-    } else {
-        qtdInput.value = 1;
-    }
+        if (window.dadosServicosSalvos && window.dadosServicosSalvos.length > 0) {
+            qtdInput.value = window.dadosServicosSalvos.length;
+        } else {
+            qtdInput.value = 1;
+        }
 
-    let dadosIniciais = garantirQuantidadeDeServicos(window.dadosServicosSalvos || [], parseInt(qtdInput.value));
-    criarCampos(dadosIniciais);
+        let dadosIniciais = garantirQuantidadeDeServicos(window.dadosServicosSalvos || [], parseInt(qtdInput.value));
+        criarCampos(dadosIniciais);
 
-    qtdInput.addEventListener("input", function () {
-        const qtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
-        const dadosAtuais = coletarDadosAtuais();
-        const dadosAjustados = garantirQuantidadeDeServicos(dadosAtuais, qtd);
-        criarCampos(dadosAjustados);
+        qtdInput.addEventListener("input", function () {
+            const novaQtd = Math.min(Math.max(parseInt(qtdInput.value) || 1, 1), 5);
+
+            // 1. Coleta dados do DOM antes de atualizar
+            const dadosAtualizados = coletarDadosAtuais();
+
+            // 2. Converte objeto em array (caso esteja como objeto)
+            const listaAtualizada = dadosAtualizados;
+
+
+            // 3. Garante que vamos ter blocos suficientes (preenche com vazios)
+            const dadosAjustados = garantirQuantidadeDeServicos(listaAtualizada, novaQtd);
+
+            // 4. Atualiza dadosGlobais com os dados atuais + campos vazios
+            dadosGlobais = dadosAjustados;
+
+            // 5. Recria os campos na tela
+            criarCampos(dadosAjustados);
+        });
+
     });
-
-});
-
-
-
 
     const nomesDosMeses = [
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -616,9 +653,18 @@ document.addEventListener("DOMContentLoaded", function () {
             mercadoPago.checked = true
             inserirChave(`
                 <label for="pix_acesskey">Acrescente seu token do Mercado Pago</label>
-                <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}">
+                <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}"style="width: 500px"><strong id="olho">olho</strong>
                 <div id="mensagem"></div>
             `)
+            const olho = document.getElementById('olho')
+            const ocultar_olho = document.getElementById('pix_acesskey') 
+            olho.addEventListener('click', function () {
+                if (ocultar_olho.type === 'text') {
+                    ocultar_olho.type = 'password'
+                } else {
+                    ocultar_olho.type = 'text'
+                }
+            })
         })
 
         editar.addEventListener('click', function () {
@@ -626,7 +672,7 @@ document.addEventListener("DOMContentLoaded", function () {
             mercadoPago.checked = true
             p.textContent = inserirChave(`
                 
-                <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}"><strong id="olho">olho</strong>
+                <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}" style="width: 500px"><strong id="olho">olho</strong>
                
             `)
             const olho = document.getElementById('olho')

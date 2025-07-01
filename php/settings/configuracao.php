@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $idSecundario = $i;
         $tipo = $_POST["tipo$i"] ?? '';
         $valor = $_POST["valor$i"] ?? 0;
-        $qtFuncionarios = (int)($_POST["qtFuncionario$i"] ?? 1);
+        $qtFuncionariosServico  = (int)($_POST["qtFuncionario$i"] ?? 1);
         $duracao = $_POST["duracaoServico$i"] ?? '';
         $intervalo = $_POST["intervaloServico$i"] ?? '';
 
@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($servicoValido) {
             // Faz UPDATE do serviço existente
             $stmt = $conn->prepare("UPDATE servico SET id_secundario=?, tipo_servico=?, valor=?, quantidade_de_funcionarios=?, duracao_servico=?, intervalo_entre_servico=? WHERE id=? AND empresa_id=?");
-            $stmt->bind_param("isdissii", $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo, $id, $empresa_id);
+            $stmt->bind_param("isdissii", $idSecundario, $tipo, $valor, $qtFuncionariosServico , $duracao, $intervalo, $id, $empresa_id);
             $stmt->execute();
             $stmt->close();
 
@@ -133,14 +133,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Insere novo serviço
             $stmt = $conn->prepare("INSERT INTO servico (empresa_id, id_secundario, tipo_servico, valor, quantidade_de_funcionarios, duracao_servico, intervalo_entre_servico) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("iisdiss", $empresa_id, $idSecundario, $tipo, $valor, $qtFuncionarios, $duracao, $intervalo);
+            $stmt->bind_param("iisdiss", $empresa_id, $idSecundario, $tipo, $valor, $qtFuncionariosServico , $duracao, $intervalo);
             $stmt->execute();
             $servicoId = $stmt->insert_id;
             $stmt->close();
         }
 
         // Insere funcionários para o serviço (novo ou atualizado)
-        for ($j = 1; $j <= $qtFuncionarios; $j++) {
+        for ($j = 1; $j <= $qtFuncionariosServico; $j++) {
             $key = "funcionario{$i}_{$j}";
             if (!empty($_POST[$key])) {
                 $nome = $_POST[$key];
@@ -151,30 +151,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-
-    //PARA DELETAR SERVIÇO  
-
-    if ($conn->connect_error) {
-        die("Erro na conexão: " . $conn->connect_error);
-    }
-
-    $stmt = $conn->prepare("DELETE FROM servico WHERE id = ? AND empresa_id");
-    if (!$stmt) {
-        die("Erro ao preparar: " . $conn->error);
-    }
-
-    $stmt->bind_param("i", $id);
-
-    if (!$stmt->execute()) {
-        die("Erro ao executar: " . $stmt->error);
-    }
-
-    echo "Serviço deletado com sucesso!";
-
-
-        //Salva meses e dias da semana indisponíveis
-        $conn->query("DELETE FROM mes_indisponivel");
-        $conn->query("DELETE FROM semana_indisponivel");
 
     $stmt = $conn->prepare("DELETE FROM mes_indisponivel WHERE empresa_id = ?");
     $stmt->bind_param("i", $empresa_id);
@@ -406,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <form action="<?= $_SERVER['PHP_SELF'] ?>" method="post">
 
-
+<!--//TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036-->
         <aside id="tipoPagamento">
             <input type="radio" name="formaPagamento" id="semVinculo" value="semVinculo"
                 <?php if ($tipoPagamentoSalvo === 'Sem Vinculo') echo 'checked'; ?>>
@@ -642,24 +618,6 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
-        // // Salvar meses indisponíveis
-        // $conn->query("DELETE FROM mes_indisponivel");
-        // if (isset($_POST['mesIndisponivel'])) {
-        //     foreach ($_POST['mesIndisponivel'] as $mes) {
-        //         $mes = (int)$mes;
-        //         $conn->query("INSERT INTO mes_indisponivel (mes) VALUES ($mes)");
-        //     }
-        // }
-
-        // // Salvar dias da semana indisponíveis
-        // $conn->query("DELETE FROM semana_indisponivel");
-        // if (isset($_POST['semanaIndisponivel'])) {
-        //     foreach ($_POST['semanaIndisponivel'] as $dia) {
-        //         $dia = (int)$dia;
-        //         $conn->query("INSERT INTO semana_indisponivel (dia_semana) VALUES ($dia)");
-        //     }
-        // }
-
 
         $mes = [
             "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -700,11 +658,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
             qtdInput.value = dadosServicos.length;
         }
 
-        criarCampos(dadosServicos);
+        const dados = dadosServicos.length > 0
+        ? dadosServicos
+        : [{ tipo_servico: "", valor: "", duracao_servico: "", intervalo_entre_servico: "", quantidade_de_funcionarios: 1, funcionarios: [] }];
 
-        qtdInput.addEventListener("input", () => {
-            criarCampos(dadosServicos);
-        });
+        qtdInput.value = dados.length;
+        criarCampos(dados);
+
+
     });
 </script>
 <script>

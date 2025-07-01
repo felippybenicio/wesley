@@ -2,8 +2,6 @@
 include '../conexao.php';
 include '../login_empresa/get_id.php';
 
-header('Content-Type: text/plain');
-
 $id_servico = $_POST['id_servico'] ?? '';
 $empresa_id = $empresa_id ?? null;
 
@@ -92,7 +90,3 @@ if ($stmtDeleteServico->execute()) {
     echo "Erro ao deletar serviço: " . $stmtDeleteServico->error;
 }
 $stmtDeleteServico->close();
-
-
-
-    
