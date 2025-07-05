@@ -6,9 +6,7 @@
 
     include '../login_empresa/get_id.php';
     include '../conexao.php';
-
-
-
+ 
 // echo "ID da empresa logada: " . $empresa_id;
 // exit;
    
@@ -18,6 +16,7 @@
     $mesesIndisponiveis = $_POST['mesIndisponivel'] ?? [];
     $diasSemanaIndisponiveis = $_POST['semanaIndisponivel'] ?? [];
     $agendamentosPorClientes = $_POST['agendamentosPorClientes'] ?? 1;
+    $forma_pagamento = $_POST['formaPagamento'] ?? '';
 
     $servicoId = [];
     $idSecundario = [];
@@ -68,6 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->fetch();
     $stmt->close();
 
+    // Primeiro, captura os dados do formulário
+    $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
+    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
+
+    $agendamentosPorClientes = $_POST['agendamentosPorClientes'] ?? 1;
+    $agendamentosPorClientes = max(1, min((int)$agendamentosPorClientes, 10));
+
+    // Agora sim faz o INSERT ou UPDATE
     if ($count > 0) {
         // Atualiza os dois campos
         $stmt = $conn->prepare("UPDATE quantidade_servico SET quantidade_de_servico = ?, agendamentos_por_clientes = ? WHERE empresa_id = ?");
@@ -80,12 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
     $stmt->close();
 
-        // Limpa as tabelas relacionadas a serviços
-        $quantidadeServicos = $_POST['quantidadeServicos'] ?? 1;
-    $quantidadeServicos = max(1, min((int)$quantidadeServicos, 5));
-
-    $agendamentosPorClientes = $_POST['agendamentosPorClientes'] ?? 1;
-    $agendamentosPorClientes = max(1, min((int)$agendamentosPorClientes, 10));
 
 
     for ($i = 1; $i <= $quantidadeServicos; $i++) {
@@ -236,10 +237,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }   
 
 
-    $forma_pagamento = $_POST['formaPagamento'] ?? '';
-
     if (!empty($forma_pagamento)) {
-        if ($forma_pagamento === 'pixManualmente') {
+        if ($forma_pagamento === 'semVinculo') {
             $valorSalvar = 'Sem Vinculo';
         } elseif ($forma_pagamento === 'mercadoPago') {
             $valorSalvar = 'Mercado Pago';
@@ -256,9 +255,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pix = trim($_POST['pix_acesskey'] ?? '');
 
     if (!empty($pix)) {
-        if (empty($pix)) {
-            echo "PIX vazio!<br>";
-        }
         $stmt = $conn->prepare("UPDATE cadastro_empresa SET pix_acesskey = ? WHERE id = ?");
         $stmt->bind_param("si", $pix, $empresa_id);
 
@@ -274,12 +270,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
-    // // Tudo certo, agora pode redirecionar
-    // header("Location: " . $_SERVER['PHP_SELF']);
-    // exit;
+
+    // Tudo certo, agora pode redirecionar
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 
+    $stmt = $conn->prepare("SELECT agendamentos_por_clientes FROM quantidade_servico WHERE empresa_id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->bind_result($agendamentosPorClientes);
+    $stmt->fetch();
+    $stmt->close();
 
     $dadosSalvos = []; // Defina como array vazio se nada for buscado
 
@@ -347,19 +350,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->fetch();
     $stmt->close();
 
-    $sql = "SELECT CHAR_LENGTH(pix_acesskey) AS tamanho FROM cadastro_empresa WHERE id = ?";
+    $sql = "SELECT CHAR_LENGTH(pix_acesskey) AS tamanho FROM cadastro_empresa WHERE id = ?"; 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $empresa_id);
     $stmt->execute();
-
     $stmt->bind_result($tamanho);
     $stmt->fetch();
     $stmt->close();
 
+    $stmt = $conn->prepare("SELECT tipo_pagamento, pix_acesskey FROM cadastro_empresa WHERE id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->bind_result($forma_pagamento, $oculto);
+    $stmt->fetch();
+    $stmt->close();
+
+
     $oculto = '';
     for ($i = 1; $i <= $tamanho; $i++) {
-        $oculto .= "*";
+        $oculto .= '*'; // acumula
     }
+
 
     $pixAcesskeySalvo = '';
     $stmt = $conn->prepare("SELECT pix_acesskey FROM cadastro_empresa WHERE id = ?");
@@ -368,6 +379,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_result($pixAcesskeySalvo);
     $stmt->fetch();
     $stmt->close();
+
+
+    $stmt = $conn->prepare("SELECT id FROM cadastro_empresa WHERE id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->store_result();
+
+    if ($stmt->num_rows === 0) {
+        // Empresa foi excluída – desloga e redireciona
+        session_destroy();
+        header('Location: /sistema-agendamento/pages/login_empresa/tela_login.html?erro=empresa_excluida');
+        exit;
+    }
+
 ?>    
 
 <!DOCTYPE html>
@@ -382,18 +407,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <form action="<?= $_SERVER['PHP_SELF'] ?>" method="post">
 
-<!--//TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036-->
+        <!--//TEST-4822365570526425-050519-215ba645d826f7e7eaaf08fdcb14d090-2426282036-->
         <aside id="tipoPagamento">
             <input type="radio" name="formaPagamento" id="semVinculo" value="semVinculo"
                 <?php if ($tipoPagamentoSalvo === 'Sem Vinculo') echo 'checked'; ?>>
-            <label for="semVinculo">Receber pagamento direto com o Pix</label><br>
+            <label for="semVinculo">receber pagamento sem vinculo com o sistema</label><br>
 
             <input type="radio" name="formaPagamento" id="mercadoPago" value="mercadoPago"
                 <?php if ($tipoPagamentoSalvo === 'Mercado Pago') echo 'checked'; ?>>
             <label for="mercadoPago">Receber pagamento com Mercado Pago</label><br>
-            
-            <p>ecess key/chave pix<strong id="pOculto"><?=$oculto?></strong></p>
-            <button type="button" id="editar">editar</button>
+
+            <?php
+                if ($forma_pagamento === 'Mercado Pago') {
+                    echo "<p>ecess key<strong id='pOculto'> $oculto</strong></p>
+                    <button type='button' id='editar'>editar</button>";
+                } else {
+                    echo '';
+                }
+            ?>
             
         </aside>
 
@@ -401,7 +432,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h1>Configuração</h1>
         
         <h2>Serviços</h2>
-        
         
         <label for="quantidadeServicos">Quantidade de serviços</label>
         <input type="number" name="quantidadeServicos" id="quantidadeServicos" value="<?= htmlspecialchars($quantidadeServicos) ?>" min="1" max="5">
@@ -607,17 +637,32 @@ while ($row = $result->fetch_assoc()) {
 
 
 
-        
-        <button type="submit" name="salvar" id="salvar">Salvar</button>
-    </form>
+        <?php      
+            // Busca status da empresa
+            $status = 'ativo';
+            $stmt = $conn->prepare("SELECT status FROM cadastro_empresa WHERE id = ?");
+            $stmt->bind_param("i", $empresa_id);
+            $stmt->execute();
+            $stmt->bind_result($status);
+            $stmt->fetch();
+            $stmt->close();
+        ?>
+
+        <!-- Depois, no HTML, por exemplo, no formulário -->
+        <?php if ($status === 'pausado'): ?>
+        <p style="color:red; font-weight:bold;">Sistema pausado. Alterações temporariamente bloqueadas.</p>
+        <!-- Exemplo: esconda os botões de salvar -->
+        <?php else: ?>
+        <button type="submit">Salvar Alterações</button>
+        <?php endif; ?>
 
     <?php
 
-if ($conn->connect_error) {
-    die("Erro na conexão: " . $conn->connect_error);
-}
+        if ($conn->connect_error) {
+            die("Erro na conexão: " . $conn->connect_error);
+        }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
+        if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
 
         $mes = [
             "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -642,14 +687,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['salvar'])) {
 <script>
     const dadosServicos = <?php echo json_encode(isset($dadosSalvos) ? $dadosSalvos : []); ?>;
 </script>
+<script>
+    const tipoPagamentoSalvo = <?php echo json_encode($tipoPagamentoSalvo); ?>;
+    const pixAcesskeySalvo = <?php echo json_encode($pixAcesskeySalvo); ?>;
+    const oculto = <?php echo json_encode($oculto); ?>;
+</script>
 
 
 <script src="/sistema-agendamento/javaScript/configuracao.js"></script>
 
-
-<script>
-  const pixAcesskeySalvo = "<?php echo addslashes($pixAcesskeySalvo); ?>";
-</script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const qtdInput = document.getElementById("quantidadeServicos");

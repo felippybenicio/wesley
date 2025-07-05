@@ -2,6 +2,8 @@
 include '../login_empresa/get_id.php';
 include '../conexao.php';
 
+
+
 // 1) Buscar clientes
 $stmtClientes = $conn->prepare("SELECT id, empresa_id, nome, sobrenome, cpf, nascimento, email, celular, cadastrado_em FROM clientes WHERE empresa_id = ?");
 
@@ -210,11 +212,21 @@ foreach ($clientes as $cliente_id => $cliente) {
             echo "</tr>";
         }
     }
-
     echo "</table>";
-
-
 }
+
+    //deslogar caso empresa deletada
+    $stmt = $conn->prepare("SELECT id FROM cadastro_empresa WHERE id = ?");
+    $stmt->bind_param("i", $empresa_id);
+    $stmt->execute();
+    $stmt->store_result();
+
+    if ($stmt->num_rows === 0) {
+        // Empresa foi excluída – desloga e redireciona
+        session_destroy();
+        header('Location: /sistema-agendamento/pages/login_empresa/tela_login.html?erro=empresa_excluida');
+        exit;
+    }
     ?>
             </tbody>
         </table>

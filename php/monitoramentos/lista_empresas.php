@@ -1,145 +1,124 @@
 <?php
-    include '../login_empresa/get_id.php';
-    include '../conexao.php';
 
-    $sql = "
-    SELECT 
-        ce.id AS empresa_id,
-        ce.nome_empresa,
-        ce.ramo_empresa,
-        ce.email_profissional,
-        ce.dia_cadastrado,
-        qs.quantidade_de_servico,
-        qs.agendamentos_por_clientes,
-        s.tipo_servico,
-        s.valor,
-        s.quantidade_de_funcionarios,
-        s.duracao_servico,
-        s.intervalo_entre_servico
-    FROM cadastro_empresa ce
-    LEFT JOIN quantidade_servico qs ON ce.id = qs.empresa_id
-    LEFT JOIN servico s ON ce.id = s.empresa_id
-    ORDER BY ce.nome_empresa ASC, s.tipo_servico ASC
-";
 
-$result = $conn->query($sql);
+include '../conexao.php';
+include 'get_admin.php';
 
-if (!$result) {
-    die("Erro na consulta: " . $conn->error);
+// seu código...
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-// Agrupa os dados por empresa_id
-$empresas = [];
-while ($row = $result->fetch_assoc()) {
-    $id = $row['empresa_id'];
-    if (!isset($empresas[$id])) {
-        // Cria um array para cada empresa com os dados principais e um array vazio de serviços
-        $empresas[$id] = [
-            'nome_empresa' => $row['nome_empresa'],
-            'ramo_empresa' => $row['ramo_empresa'],
-            'email_profissional' => $row['email_profissional'],
-            'dia_cadastrado' => $row['dia_cadastrado'],
-            'quantidade_de_servico' => $row['quantidade_de_servico'],
-            'agendamentos_por_clientes' => $row['agendamentos_por_clientes'],
-            'servicos' => []
-        ];
-    }
-
-    // Se existir tipo_servico, adiciona à lista de serviços da empresa
-    if ($row['tipo_servico']) {
-        $empresas[$id]['servicos'][] = [
-            'tipo_servico' => $row['tipo_servico'],
-            'valor' => $row['valor'],
-            'quantidade_de_funcionarios' => $row['quantidade_de_funcionarios'],
-            'duracao_servico' => $row['duracao_servico'],
-            'intervalo_entre_servico' => $row['intervalo_entre_servico']
-        ];
-    }
+if (!isset($_SESSION['admin_id'])) {
+    header("Location: login_admin.php");
+    exit;
 }
+
+include '../conexao.php';
+
+$nomeAdmin = $_SESSION['admin_nome'] ?? 'Administrador';
+$empresas = $conn->query("SELECT * FROM cadastro_empresa");
+
+
 ?>
 
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8" />
-    <title>Empresas e Serviços</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .empresa-titulo {
-            background: #007BFF;
-            color: white;
-            padding: 10px;
-            margin-top: 40px;
-            font-weight: bold;
-            border-radius: 4px;
-        }
-        .empresa-dados {
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        table.servicos {
-            border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 30px;
-        }
-        table.servicos th, table.servicos td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            font-size: 14px;
-            text-align: left;
-        }
-        table.servicos th {
-            background-color: #f2f2f2;
-        }
-        table.servicos tr:nth-child(even) {
-            background-color: #fafafa;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Empresas Cadastradas</title>
+  <style>
+    body { font-family: sans-serif; background: #f5f5f5; }
+    .empresa { background: #fff; padding: 15px; margin: 20px; border-radius: 8px; box-shadow: 0 0 10px #ccc; }
+    .cabecalho { display: flex; justify-content: space-between; align-items: center; }
+    .titulo { font-weight: bold; font-size: 18px; }
+    .deletar, .pausar { background: red; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+    .toggle { background: #3498db; color: #fff; border: none; margin: 5px 5px 0 0; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    .conteudo { display: none; background: #f0f0f0; padding: 10px; border-radius: 5px; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
+    #senhaPrompt { display: none; position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.3); z-index: 1000; }
+    #senhaPrompt input { width: 100%; padding: 8px; margin-top: 10px; }
+    #senhaPrompt button { margin-top: 10px; }
+  </style>
+  <script src="../../javaScript/monitoramento.js"></script>
 </head>
 <body>
-<a href="../..\pages\login_empresa\tela_cadastro_login.html">cadastrar novas empresas</a>
-<?php foreach ($empresas as $empresa_id => $empresa): ?>
-    <div class="empresa-titulo">
-        <?= htmlspecialchars($empresa['nome_empresa']) ?> (ID: <?= $empresa_id ?>)
-    </div>
-    <div class="empresa-dados">
-        <strong>Ramo:</strong> <?= htmlspecialchars($empresa['ramo_empresa']) ?> |
-        <strong>Email:</strong> <?= htmlspecialchars($empresa['email_profissional']) ?> |
-        <strong>Cadastrado em:</strong> <?= htmlspecialchars($empresa['dia_cadastrado']) ?> |
-        <strong>Qtd Serviços:</strong> <?= htmlspecialchars($empresa['quantidade_de_servico']) ?> |
-        <strong>Agend. por Cliente:</strong> <?= htmlspecialchars($empresa['agendamentos_por_clientes']) ?>
-    </div>
 
-    <?php if (count($empresa['servicos']) > 0): ?>
-    <table class="servicos">
-        <thead>
-            <tr>
-                <th>Tipo de Serviço</th>
-                <th>Valor (R$)</th>
-                <th>Funcionários</th>
-                <th>Duração</th>
-                <th>Intervalo</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($empresa['servicos'] as $servico): ?>
-            <tr>
-                <td><?= htmlspecialchars($servico['tipo_servico']) ?></td>
-                <td><?= number_format((float)$servico['valor'], 2, ',', '.') ?></td>
-                <td><?= htmlspecialchars($servico['quantidade_de_funcionarios']) ?></td>
-                <td><?= htmlspecialchars($servico['duracao_servico']) ?></td>
-                <td><?= htmlspecialchars($servico['intervalo_entre_servico']) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-    <?php else: ?>
-        <p><em>Sem serviços cadastrados para esta empresa.</em></p>
-    <?php endif; ?>
-<?php endforeach; ?>
+<h1>Bem-vindo, <?php echo htmlspecialchars($nomeAdmin); ?></h1>
+
+<div id="senhaPrompt">
+  <label>Digite a senha do monitoramento:</label>
+  <input type="password" id="senhaInput">
+  <button onclick="enviarSenha()">Confirmar</button>
+  <button onclick="cancelarSenha()">Cancelar</button>
+</div>
+
+<h2>Empresas</h2>
+
+<?php
+while ($empresa = $empresas->fetch_assoc()) {
+  $id = $empresa['id'];
+  $status = $empresa['status'] ?? 'ativo';
+  $qtd_servico = $conn->query("SELECT * FROM quantidade_servico WHERE empresa_id = $id")->fetch_assoc();
+  $servicos = $conn->query("SELECT * FROM servico WHERE empresa_id = $id");
+  $horarios = $conn->query("SELECT * FROM horario_config WHERE empresa_id = $id");
+  $diasInd = $conn->query("SELECT data FROM dia_indisponivel WHERE empresa_id = $id");
+  $semanaInd = $conn->query("SELECT dia_semana FROM semana_indisponivel WHERE empresa_id = $id");
+  $mesInd = $conn->query("SELECT mes FROM mes_indisponivel WHERE empresa_id = $id");
+
+  echo "<div class='empresa' data-empresa-id='{$id}'>";
+  echo "<div class='cabecalho'><div class='titulo'>#{$empresa['id']} {$empresa['nome_empresa']}";
+  if ($status === 'pausado') echo " <span style='color: red;'>(PAUSADA)</span>";
+  echo "</div>";
+  echo "<div><button class='deletar' onclick=\"solicitarSenha('deletar', {$id})\">Excluir</button>";
+  if ($status === 'pausado') {
+    echo "<button class='deletar' onclick=\"solicitarSenha('despausar', {$id})\">Despausar</button>";
+  } else {
+    echo "<button class='deletar' onclick=\"solicitarSenha('pausar', {$id})\">Pausar</button>";
+  }
+  echo "</div></div>";
+
+  echo "<p><strong>Email:</strong> {$empresa['ramo_empresa']} | <strong>Email:</strong> {$empresa['email_profissional']} | <strong>Pagamento:</strong> {$empresa['tipo_pagamento']} | <strong>AcessKey:</strong> {$empresa['pix_acesskey']}</p>";
+  echo "<p><strong>Endereço:</strong> {$empresa['endereco']}, {$empresa['cidade']} | <strong>Cadastrada em:</strong> {$empresa['dia_cadastrado']}</p>";
+  echo "<p><strong>Quantidades de Serviços:</strong> {$qtd_servico['quantidade_de_servico']} | <strong>Agendamentos/Cliente:</strong> {$qtd_servico['agendamentos_por_clientes']}</p>";
+
+  echo "<div><button class='toggle' onclick=\"toggleConteudo('ferias$id')\">Meses de Férias</button>";
+  echo "<button class='toggle' onclick=\"toggleConteudo('servicos$id')\">Serviços</button>";
+  echo "<button class='toggle' onclick=\"toggleConteudo('horarios$id')\">Horários</button>";
+  echo "<button class='toggle' onclick=\"toggleConteudo('dias$id')\">Dias Específicos Bloqueados</button>";
+  echo "<button class='toggle' onclick=\"toggleConteudo('semanas$id')\">Dias da Semana Bloqueados</button></div>";
+
+  echo "<div class='conteudo' id='ferias$id'><ul>";
+  while ($m = $mesInd->fetch_assoc()) echo "<li>Mês: {$m['mes']}</li>";
+  echo "</ul></div>";
+
+  echo "<div class='conteudo' id='servicos$id'><table><tr><th>ID</th><th>Tipo</th><th>Valor</th><th>Funcionários</th><th>Duração</th><th>Intervalo</th></tr>";
+  while ($s = $servicos->fetch_assoc()) {
+    $funcionarios = [];
+    $resFunc = $conn->query("SELECT nome FROM funcionario WHERE empresa_id = $id AND servico_id = {$s['id']}");
+    while ($f = $resFunc->fetch_assoc()) $funcionarios[] = $f['nome'];
+    echo "<tr><td>{$s['id_secundario']}</td><td>{$s['tipo_servico']}</td><td>{$s['valor']}</td><td>" . implode(', ', $funcionarios) . "</td><td>" . substr($s['duracao_servico'], 0, 5) . "</td><td>" . substr($s['intervalo_entre_servico'], 0, 5) . "</td></tr>";
+  }
+  echo "</table></div>";
+
+  echo "<div class='conteudo' id='horarios$id'><table><tr><th>Dia/Data</th><th>Início</th><th>Término</th></tr>";
+  while ($h = $horarios->fetch_assoc()) {
+    echo "<tr><td>{$h['semana_ou_data']}</td><td>" . substr($h['inicio_servico'], 0, 5) . "</td><td>" . substr($h['termino_servico'], 0, 5) . "</td></tr>";
+  }
+  echo "</table></div>";
+
+  echo "<div class='conteudo' id='dias$id'><ul>";
+  while ($d = $diasInd->fetch_assoc()) echo "<li>Data: " . date('d/m/Y', strtotime($d['data'])) . "</li>";
+  echo "</ul></div>";
+
+  echo "<div class='conteudo' id='semanas$id'><ul>";
+  while ($s = $semanaInd->fetch_assoc()) echo "<li>Dia da Semana: {$s['dia_semana']}</li>";
+  echo "</ul></div>";
+
+  echo "</div>";
+}
+?>
 
 </body>
 </html>

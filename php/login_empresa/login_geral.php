@@ -171,7 +171,7 @@ $senhaHash = getSenhaHash($conn, $empresa_id);
             message.className = 'success';
             message.textContent = data.msg;
             setTimeout(() => {
-                showLoginForm();
+                window.location.href = '../settings/configuracao.php';
             }, 1500);
             } else {
             message.className = 'error';

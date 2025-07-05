@@ -14,9 +14,10 @@ $endereco = limparEntrada($_POST['endereco'] ?? '');
 $cidade = limparEntrada($_POST['cidade'] ?? '');
 $email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
 $senha = $_POST['senha'] ?? '';
+$confirmacao = $_POST['confirmacao'] ?? '';
 $dataCadastro = date('Y-m-d H:i:s');
 
-// ⚠️ Verificação de campos obrigatórios
+// //⚠️ Verificação de campos obrigatórios
 // if (empty($empresa) || empty($ramo) || empty($email) || empty($senha) || empty($edereco) || empty($cidade)) {
 //     echo "Preencha todos os campos obrigatórios.";
 //     exit;
@@ -29,8 +30,13 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 // ⚠️ Verificação mínima da senha (ex: 8 caracteres)
-if (strlen($senha) < 8) {
+if (strlen($senha) < 4) {
     echo "A senha deve ter no mínimo 8 caracteres.";
+    exit; 
+} 
+
+if (empty($senha) || $senha !== $confirmacao) {
+    echo "confirmação negada.";
     exit;
 }
 
@@ -52,9 +58,14 @@ $stmt->bind_param("sssssss", $empresa, $ramo, $email, $senhaHash, $endereco, $ci
 
 // Execução segura
 if ($stmt->execute()) {
-    
+    $idEmpresaRecemCriado = $stmt->insert_id;
+    $_SESSION['empresa_id'] = $idEmpresaRecemCriado;
+    header("Location: /sistema-agendamento/php/agendamentos/tela_inicial_empresa.php");
+    exit;
 } else {
     echo "Erro ao cadastrar: " . $stmt->error;
+    echo "empresa ja cadastrada";
+    exit;
 }
 
 $stmt->close();

@@ -1,6 +1,8 @@
 <?php
+
 include '../login_empresa/get_id.php';
 include '../conexao.php';
+include '../monitoramentos/pausar_temporariamente.php';
 
 if (!isset($_SESSION['empresa_id'])) {
     // Se não estiver logado, redireciona para login
@@ -8,8 +10,9 @@ if (!isset($_SESSION['empresa_id'])) {
     exit();
 }
  
-$empresa_id = $_SESSION['empresa_id'];
 
+
+$empresa_id = $_SESSION['empresa_id'];
 
 $stmt = $conn->prepare("SELECT * FROM servico WHERE empresa_id = ?");
 $stmt->bind_param("i", $empresa_id);
@@ -50,6 +53,18 @@ function timeToMinutes($timeStr) {
     return ($h * 60) + $m;
 }
 
+//deslogar caso seja excluida
+$stmt = $conn->prepare("SELECT id FROM cadastro_empresa WHERE id = ?");
+$stmt->bind_param("i", $empresa_id);
+$stmt->execute();
+$stmt->store_result();
+
+if ($stmt->num_rows === 0) {
+    // Empresa foi excluída – desloga e redireciona
+    session_destroy();
+    header('Location: /sistema-agendamento/pages/login_empresa/tela_login.html?erro=empresa_excluida');
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -101,8 +116,6 @@ function timeToMinutes($timeStr) {
 
                 
                 <div>
-                    
-
                     <?php
                         $stmt = $conn->prepare("SELECT agendamentos_por_clientes FROM quantidade_servico WHERE empresa_id = ?");
                         $stmt->bind_param("i", $empresa_id);

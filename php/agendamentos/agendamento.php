@@ -10,11 +10,8 @@
     //include 'restringir_agendamentos.php';
     include '../login_empresa/get_id.php';
     include '../conexao.php';
+    include '../monitoramentos/pausar_temporariamente.php';
     require_once __DIR__ . '/../vendor/autoload.php';
-
-
-
-
 
     $configs = $conn->query("SELECT * FROM servico")->fetch_all(MYSQLI_ASSOC);
     $diaHoraDisponivel = $conn->query("SELECT dia hora FROM agendamento")->fetch_all(MYSQLI_ASSOC);
@@ -157,9 +154,6 @@ if ($qtdPendentes > 0) {
     $conn->close();
     exit;
 }
-
-
-
 
 
 
@@ -405,8 +399,7 @@ foreach ($servicos as $index => $servicoData) {
 
 switch ($tipoPagamento) {
     case 'Sem Vinculo':
-        echo '';
-
+        
         break;
     case 'Mercado Pago': 
         echo "<p><a href='" . htmlspecialchars($preference->init_point) . "' target='_blank' rel='noopener noreferrer'>Clique aqui para pagar</a></p>";

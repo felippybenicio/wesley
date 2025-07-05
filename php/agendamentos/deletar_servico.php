@@ -1,6 +1,6 @@
 <?php
 include '../conexao.php';
-include '../login_empresa/get_id.php';
+include 'get_admin.php';
 
 $id_servico = $_POST['id_servico'] ?? '';
 $empresa_id = $empresa_id ?? null;

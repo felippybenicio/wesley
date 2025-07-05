@@ -390,9 +390,6 @@ for (let i = 0; i < dados.length; i++) {
             checkbox.addEventListener('change', mesDesabilitado); // Chama a função quando o checkbox muda
         });
     });
-
-
-
         function semanasDesabilitado() {
         const checkboxes = document.querySelectorAll('.sem-checkbox:checked');
         const diasMarcados = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -429,9 +426,6 @@ for (let i = 0; i < dados.length; i++) {
             checkbox.addEventListener('change', semanasDesabilitado);
         });
     });
-
-
-
 
     function diasDeNaoFucionamento() {
         const dias = document.querySelectorAll("td.data"); // atualiza os dias
@@ -533,8 +527,6 @@ for (let i = 0; i < dados.length; i++) {
     });
 
 
-
-
     mesSelect.value = mesAtual;
 
     function mes_anoSelecionado() {
@@ -622,71 +614,60 @@ for (let i = 0; i < dados.length; i++) {
     });
     })
 
-    function formaDePagamento() {
-        const semVinculo = document.getElementById('semVinculo')
-        const mercadoPago = document.getElementById('mercadoPago')
-        const aside = document.getElementById('tipoPagamento')
-        const editar = document.getElementById('editar')
-        const p = document.getElementById('pOculto')
+function formaDePagamento() {
+    const semVinculo = document.getElementById('semVinculo');
+    const mercadoPago = document.getElementById('mercadoPago');
+    const aside = document.getElementById('tipoPagamento');
+    const editar = document.getElementById('editar');
+    const p = document.getElementById('pOculto');
 
-        const chave = document.createElement('section')
-        chave.id = 'campoPixOuToken' // id opcional para controle
+    const chave = document.createElement('section');
+    chave.id = 'campoPixOuToken';
 
-        
-
-        function inserirChave(html) {
-            chave.innerHTML = html
-            if (!aside.contains(chave)) {
-                aside.appendChild(chave)
-            }
+    function inserirChave(html) {
+        chave.innerHTML = html;
+        if (!aside.contains(chave)) {
+            aside.appendChild(chave);
         }
-
-        semVinculo.addEventListener('click', function () {
-            semVinculo.checked = true
-            mercadoPago.checked = false
-            inserirChave('')
-            inserirChave.style.display = 'none'
-        })
-
-        mercadoPago.addEventListener('click', function () {
-            semVinculo.checked = false
-            mercadoPago.checked = true
-            inserirChave(`
-                <label for="pix_acesskey">Acrescente seu token do Mercado Pago</label>
-                <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}"style="width: 500px"><strong id="olho">olho</strong>
-                <div id="mensagem"></div>
-            `)
-            const olho = document.getElementById('olho')
-            const ocultar_olho = document.getElementById('pix_acesskey') 
-            olho.addEventListener('click', function () {
-                if (ocultar_olho.type === 'text') {
-                    ocultar_olho.type = 'password'
-                } else {
-                    ocultar_olho.type = 'text'
-                }
-            })
-        })
-
-        editar.addEventListener('click', function () {
-            semVinculo.checked = false
-            mercadoPago.checked = true
-            p.textContent = inserirChave(`
-                
-                <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}" style="width: 500px"><strong id="olho">olho</strong>
-               
-            `)
-            const olho = document.getElementById('olho')
-            const ocultar_olho = document.getElementById('pix_acesskey') 
-            
-            olho.addEventListener('click', function () {
-                if (ocultar_olho.type === 'text') {
-                    ocultar_olho.type = 'password'
-                } else {
-                    ocultar_olho.type = 'text'
-                }
-            })
-        })
     }
+
+    semVinculo.addEventListener('click', function () {
+        chave.style.display = 'none';
+    });
+
+    mercadoPago.addEventListener('click', function () {
+        inserirChave(`
+            <label for="pix_acesskey">Acrescente seu token do Mercado Pago</label>
+            <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}" style="width: 500px">
+            <strong id="olho">olho</strong>
+            <div id="mensagem"></div>
+        `);
+        ativarOlho();
+        chave.style.display = 'block';
+    });
+
+    editar.addEventListener('click', function () {
+        inserirChave(`
+            <label for="pix_acesskey">Edite seu token do Mercado Pago</label>
+            <input type="text" name="pix_acesskey" id="pix_acesskey" value="${pixAcesskeySalvo}" style="width: 500px">
+            <strong id="olho">olho</strong>
+        `);
+        ativarOlho();
+        chave.style.display = 'block';
+    });
+
+    function ativarOlho() {
+        const olho = document.getElementById('olho');
+        const campo = document.getElementById('pix_acesskey');
+        if (!olho || !campo) return;
+
+        olho.addEventListener('click', function () {
+            campo.type = (campo.type === 'text') ? 'password' : 'text';
+        }); 
+    }
+}
+
 
     document.addEventListener('DOMContentLoaded', formaDePagamento())
 
+            
