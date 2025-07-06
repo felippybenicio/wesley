@@ -7,11 +7,9 @@ function limparEntrada($dado) {
     return htmlspecialchars(trim($dado));
 }
 
-// Captura e validação
 $email = limparEntrada($_POST['email'] ?? '');
 $senha = $_POST['senha'] ?? '';
 
-// Verificações
 if (empty($email) || empty($senha)) {
     echo "Preencha e-mail e senha.";
     exit;
@@ -22,39 +20,49 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
-// Consulta protegida
+//////////////////////////////////////////
+// 1. Verificar se é um CLIENTE
+//////////////////////////////////////////
 $sql = "SELECT id, senha_inicial FROM cadastro_empresa WHERE email_profissional = ?";
 $stmt = $conn->prepare($sql);
-
-if (!$stmt) {
-    echo "Erro na preparação da consulta.";
-    exit;
-}
-
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Verificação do resultado
-if ($result->num_rows === 1) {
+if ($result && $result->num_rows === 1) {
     $user = $result->fetch_assoc();
 
     if (password_verify($senha, $user['senha_inicial'])) {
-        // Regerar sessão para evitar Session Fixation
         session_regenerate_id(true);
         $_SESSION['empresa_id'] = $user['id'];
-
-        // Redirecionamento seguro
         header("Location: ../../php/agendamentos/tela_inicial_empresa.php");
         exit;
-    } else {
-        echo "Senha incorreta.";
     }
-} else {
-    echo "Usuário não encontrado.";
 }
 
-// Finalização
+//////////////////////////////////////////
+// 2. Verificar se é um ADMIN
+//////////////////////////////////////////
+$sqlAdmin = "SELECT id, senha FROM monitoramento WHERE email = ?";
+$stmtAdmin = $conn->prepare($sqlAdmin);
+$stmtAdmin->bind_param("s", $email);
+$stmtAdmin->execute();
+$resultAdmin = $stmtAdmin->get_result();
+
+if ($resultAdmin && $resultAdmin->num_rows === 1) {
+    $admin = $resultAdmin->fetch_assoc();
+
+    if (password_verify($senha, $admin['senha'])) {
+        session_regenerate_id(true);
+        $_SESSION['admin_id'] = $admin['id'];
+        header("Location: ../../php/monitoramentos/lista_empresas.php");
+        exit;
+    }
+}
+
+echo "Usuário ou senha incorretos.";
+
 $stmt->close();
+$stmtAdmin->close();
 $conn->close();
 ?>

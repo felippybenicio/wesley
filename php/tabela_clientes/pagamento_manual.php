@@ -2,19 +2,22 @@
 include '../conexao.php';
 include '../login_empresa/get_id.php';
 
+header('Content-Type: application/json');
+
 if (!$empresa_id) {
-    echo "erro: empresa não logada";
+    http_response_code(403);
+    echo json_encode(['erro' => 'Empresa não logada.']);
     exit;
 }
 
 if (!isset($_POST['id']) || !is_numeric($_POST['id'])) {
-    echo "erro: id inválido";
+    http_response_code(400);
+    echo json_encode(['erro' => 'ID inválido.']);
     exit;
 }
 
 $id_pagamento = intval($_POST['id']);
 
-// Verifica se a preparação da query funcionou
 $sql = "
     UPDATE pagamento 
     SET status_pagamento = 'pago', created_at = NOW() 
@@ -24,14 +27,20 @@ $sql = "
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {
-    echo "erro: prepare falhou - " . $conn->error;
+    http_response_code(500);
+    echo json_encode(['erro' => 'Erro na preparação da query: ' . $conn->error]);
     exit;
 }
 
 $stmt->bind_param("ii", $id_pagamento, $empresa_id);
+$stmt->execute();
 
-if ($stmt->execute() && $stmt->affected_rows > 0) {
-    echo "ok";
+if ($stmt->affected_rows > 0) {
+    echo json_encode(['sucesso' => true, 'mensagem' => 'Pagamento atualizado com sucesso.']);
 } else {
-    echo "erro: pagamento não encontrado ou não pertence à empresa";
+    http_response_code(404);
+    echo json_encode(['erro' => 'Pagamento não encontrado ou não pertence à empresa.']);
 }
+
+$stmt->close();
+$conn->close();

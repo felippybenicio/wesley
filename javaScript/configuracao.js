@@ -195,6 +195,8 @@ for (let i = 0; i < dados.length; i++) {
             }
         });
     }
+
+    
 }
 
     function coletarDadosAtuais() {

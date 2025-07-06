@@ -315,7 +315,7 @@ switch ($tipoPagamento) {
         $preference->items = [$item];
         $preference->external_reference = $pagamento_id;
 
-        $base_url = "https://72ac-2804-7f0-b7c3-3550-4cdc-32f-ed54-d378.ngrok-free.app/sistema-agendamento/pages";
+        $base_url = "https://72ac-2804-7f0-b7c3-3550-4cdc-32f-ed54-d378.ngrok-free.app/sistema-agendamento/pages/confirmacao_vendas";
 
         $preference->back_urls = [
             "success" => $base_url . "/sucesso.html",
@@ -323,7 +323,7 @@ switch ($tipoPagamento) {
             "pending" => $base_url . "/pendente.html"
         ];
         $preference->auto_return = "approved";
-        $preference->notification_url = $base_url . "/confirmacao_vendas/notificacao.php";
+        $preference->notification_url = $base_url . "/notificacao.php";
 
         try {
             $preference->save();
@@ -367,8 +367,21 @@ $stmt->bind_result($tipo_servico, $duracao_servico, $valor);
 $stmt->fetch();
 $stmt->close();
 
+$sql = "SELECT nome FROM clientes WHERE empresa_id = ? AND cpf = ? LIMIT 1";
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    die("Erro na preparação: " . $conn->error);
+}
+$stmt->bind_param("ii", $empresa_id, $cpf);
+$stmt->execute();
+$stmt->bind_result($nome);
+$stmt->fetch();
+$stmt->close();
+
 // Exibição final
-echo "<h1>Obrigado, " . htmlspecialchars($nome) . ", pela sua preferência!</h1>";
+echo "<a href='tela_inicial_empresa.php'>voltar para agendamento</a>";
+
+echo "<h1>Obrigado, " . $nome. ", pela sua preferência!</h1>";
 
 foreach ($servicos as $index => $servicoData) {
     $servico_id = (int) $servicoData['servico_id'];

@@ -46,7 +46,7 @@ $empresas = $conn->query("SELECT * FROM cadastro_empresa");
 <body>
 
 <h1>Bem-vindo, <?php echo htmlspecialchars($nomeAdmin); ?></h1>
-
+<a href="\cadastro_admin.php">cadastrar novo admin</a>
 <div id="senhaPrompt">
   <label>Digite a senha do monitoramento:</label>
   <input type="password" id="senhaInput">

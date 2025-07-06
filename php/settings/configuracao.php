@@ -400,7 +400,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>configuração</title>
+    <title>configuração</title> 
 </head>
 <body>
     <a href="../agendamentos/tela_inicial_empresa.php">Voltar</a>
@@ -650,10 +650,10 @@ while ($row = $result->fetch_assoc()) {
 
         <!-- Depois, no HTML, por exemplo, no formulário -->
         <?php if ($status === 'pausado'): ?>
-        <p style="color:red; font-weight:bold;">Sistema pausado. Alterações temporariamente bloqueadas.</p>
+            <p style="color:red; font-weight:bold;">Sistema pausado. Alterações temporariamente bloqueadas.</p>
         <!-- Exemplo: esconda os botões de salvar -->
         <?php else: ?>
-        <button type="submit">Salvar Alterações</button>
+            <button type="submit" id="botaoSalvar">Salvar</button>
         <?php endif; ?>
 
     <?php
